@@ -1,0 +1,402 @@
+// Banco de dados da plataforma Sergio Eletricista
+// Separação lógica:
+//  - Público (portfólio): SiteSetting, PortfolioService, PortfolioWork, Testimonial, ServiceArea
+//  - Leads do portfólio (admin): LeadRequest
+//  - Privado do assinante (sempre filtrado por userId): Brand, Client, UserService, Quote, QuoteItem, FinanceEntry
+//  - Administrativo: ServiceTemplate (biblioteca), Plan, AuditLog
+//  - Financeiro/assinaturas: Subscription, Payment, WebhookEvent
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  ELECTRICIAN
+}
+
+enum SubscriptionStatus {
+  PENDING // aguardando pagamento
+  ACTIVE
+  PAST_DUE // pagamento falhou / atrasado
+  CANCELLED
+  EXPIRED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  VIEWED
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum ItemKind {
+  SERVICE
+  MATERIAL
+  LABOR
+}
+
+enum DiscountType {
+  VALUE
+  PERCENT
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CLOSED
+  DISCARDED
+}
+
+enum FinanceType {
+  INCOME
+  EXPENSE
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  passwordHash      String
+  name              String
+  role              Role      @default(ELECTRICIAN)
+  blocked           Boolean   @default(false)
+  onboardedAt       DateTime?
+  failedLogins      Int       @default(0)
+  lockedUntil       DateTime?
+  // Liberação manual feita pelo administrador (cortesia, pagamento por fora etc.)
+  manualAccessUntil DateTime?
+  manualPlanId      String?
+  manualPlan        Plan?     @relation("ManualPlan", fields: [manualPlanId], references: [id])
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  sessions      Session[]
+  resetTokens   PasswordResetToken[]
+  brand         Brand?
+  clients       Client[]
+  services      UserService[]
+  quotes        Quote[]
+  subscriptions Subscription[]
+  payments      Payment[]
+  finance       FinanceEntry[]
+  quoteCounter  Int                  @default(0)
+}
+
+model Session {
+  id        String   @id // sha256 do token do cookie
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userAgent String?
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id // sha256 do token enviado por e-mail
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Brand {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  professionalName String
+  companyName    String?
+  document       String? // CPF ou CNPJ
+  phone          String?
+  whatsapp       String?
+  address        String?
+  email          String?
+  tagline        String?
+  primaryColor   String   @default("#0F2742")
+  accentColor    String   @default("#FFB400")
+  logo           Bytes?
+  logoMime       String?
+  signature      Bytes?
+  signatureMime  String?
+  defaultPaymentTerms String? @default("50% na aprovação e 50% na conclusão")
+  defaultExecution    String? @default("A combinar")
+  defaultValidityDays Int     @default(7)
+  defaultNotes        String?
+  updatedAt      DateTime @updatedAt
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  quotes    Quote[]
+
+  @@index([userId, name])
+}
+
+// Biblioteca global (administração) — apenas sugestões de preço
+model ServiceTemplate {
+  id             String        @id @default(cuid())
+  name           String
+  description    String?
+  unit           String        @default("un")
+  suggestedPrice Decimal       @db.Decimal(10, 2)
+  category       String        @default("Geral")
+  active         Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  userServices   UserService[]
+}
+
+// Tabela de preços individual de cada eletricista
+model UserService {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  templateId String?
+  template   ServiceTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  name       String
+  description String?
+  unit       String           @default("un")
+  price      Decimal          @db.Decimal(10, 2)
+  category   String           @default("Geral")
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([userId, templateId])
+  @@index([userId])
+}
+
+model Quote {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  number         Int
+  clientId       String?
+  client         Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  // cópia dos dados do cliente no momento da emissão
+  clientName     String
+  clientPhone    String?
+  clientAddress  String?
+  title          String       @default("Orçamento de serviços elétricos")
+  status         QuoteStatus  @default(DRAFT)
+  travelFee      Decimal      @default(0) @db.Decimal(10, 2)
+  discountType   DiscountType @default(VALUE)
+  discountValue  Decimal      @default(0) @db.Decimal(10, 2)
+  subtotal       Decimal      @default(0) @db.Decimal(12, 2)
+  total          Decimal      @default(0) @db.Decimal(12, 2)
+  paymentTerms   String?
+  executionTime  String?
+  validityDays   Int          @default(7)
+  notes          String?
+  issuedAt       DateTime?
+  sentAt         DateTime?
+  viewedAt       DateTime?
+  decidedAt      DateTime?
+  shareToken     String       @unique @default(cuid())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  items          QuoteItem[]
+  finance        FinanceEntry[]
+
+  @@unique([userId, number])
+  @@index([userId, status])
+  @@index([userId, createdAt])
+}
+
+model QuoteItem {
+  id          String   @id @default(cuid())
+  quoteId     String
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  kind        ItemKind @default(SERVICE)
+  description String
+  unit        String   @default("un")
+  quantity    Decimal  @db.Decimal(10, 2)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(12, 2)
+  position    Int      @default(0)
+}
+
+model FinanceEntry {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        FinanceType
+  description String
+  amount      Decimal     @db.Decimal(12, 2)
+  date        DateTime
+  quoteId     String?
+  quote       Quote?      @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  createdAt   DateTime    @default(now())
+
+  @@index([userId, date])
+}
+
+model Plan {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  name             String
+  description      String?
+  priceMonthly     Decimal        @db.Decimal(10, 2)
+  priceYearly      Decimal        @db.Decimal(10, 2)
+  quoteLimit       Int? // null = ilimitado
+  featBrandFull    Boolean        @default(false) // cores e assinatura
+  featClientHistory Boolean       @default(false)
+  featStatus       Boolean        @default(false)
+  featWhatsapp     Boolean        @default(false)
+  featFinance      Boolean        @default(false)
+  featReports      Boolean        @default(false)
+  highlight        Boolean        @default(false)
+  active           Boolean        @default(true)
+  sortOrder        Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  subscriptions    Subscription[]
+  manualUsers      User[]         @relation("ManualPlan")
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  userId             String
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId             String
+  plan               Plan               @relation(fields: [planId], references: [id])
+  cycle              BillingCycle       @default(MONTHLY)
+  amount             Decimal            @db.Decimal(10, 2)
+  status             SubscriptionStatus @default(PENDING)
+  mpPreapprovalId    String?            @unique
+  mpStatus           String?
+  currentPeriodEnd   DateTime?
+  cancelledAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  payments           Payment[]
+
+  @@index([userId, status])
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  mpPaymentId    String?       @unique
+  amount         Decimal       @db.Decimal(10, 2)
+  status         String // approved, rejected, pending, manual...
+  description    String?
+  paidAt         DateTime?
+  createdAt      DateTime      @default(now())
+}
+
+model WebhookEvent {
+  id         String   @id @default(cuid())
+  provider   String
+  topic      String?
+  resourceId String?
+  requestId  String?
+  processed  Boolean  @default(false)
+  error      String?
+  createdAt  DateTime @default(now())
+
+  @@index([provider, resourceId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  target    String?
+  details   String?
+  createdAt DateTime @default(now())
+}
+
+// ---------- Portfólio público ----------
+model SiteSetting {
+  key   String @id
+  value String
+}
+
+model PortfolioService {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  summary     String
+  body        String
+  seoTitle    String?
+  seoDescription String?
+  published   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  updatedAt   DateTime @updatedAt
+}
+
+model PortfolioWork {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  neighborhood String?
+  serviceSlug String?
+  published   Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  photos      PortfolioPhoto[]
+}
+
+model PortfolioPhoto {
+  id       String        @id @default(cuid())
+  workId   String
+  work     PortfolioWork @relation(fields: [workId], references: [id], onDelete: Cascade)
+  kind     String        @default("DEPOIS") // ANTES | DEPOIS | GERAL
+  data     Bytes
+  mime     String
+  width    Int?
+  height   Int?
+  position Int           @default(0)
+}
+
+model Testimonial {
+  id           String   @id @default(cuid())
+  authorName   String
+  neighborhood String?
+  text         String
+  rating       Int      @default(5)
+  published    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+}
+
+model ServiceArea {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  sortOrder Int     @default(0)
+}
+
+model LeadRequest {
+  id           String     @id @default(cuid())
+  name         String
+  phone        String
+  neighborhood String
+  service      String
+  description  String?
+  status       LeadStatus @default(NEW)
+  ip           String?
+  createdAt    DateTime   @default(now())
+}
