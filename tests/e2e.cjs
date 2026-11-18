@@ -26,13 +26,13 @@ async function makeQuote(p, client, beforeClick) {
   ok(r401.status === 401, 'webhook sem assinatura é recusado (401)');
   const anon = await (await b.newContext()).newPage();
   await anon.goto(B + '/painel'); ok(anon.url().includes('/entrar'), 'visitante é mandado para login ao abrir /painel');
-  const ra = await anon.goto(B + '/admin'); ok(ra.status() === 404 && !anon.url().includes('/entrar'), 'visitante em /admin vê "página não encontrada" (área escondida)');
+  await anon.goto(B + '/admin'); ok(anon.url() === B + '/', 'visitante em /admin vai para a página inicial');
 
   const A = await signup(b, 'Eletricista A', `a${t}@teste.local`);
   ok(await A.isVisible('text=Sua assinatura não está ativa'), 'sem assinatura: aviso no painel');
   await A.goto(B + '/painel/orcamentos/novo');
   ok(await A.locator('button:has-text("Finalizar orçamento")').isDisabled(), 'sem assinatura: botão de salvar desabilitado na tela');
-  const rb = await A.goto(B + '/admin'); ok(rb.status() === 404, 'eletricista comum em /admin vê "página não encontrada"');
+  await A.goto(B + '/admin'); ok(A.url() === B + '/', 'eletricista comum em /admin vai para a página inicial');
 
   // Admin libera acesso manual (plano Inicial)
   const adm = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();

@@ -30,6 +30,38 @@ const services = [
     "Faço a parte elétrica completa para ar-condicionado, com circuito dedicado e disjuntor adequado, além da instalação e manutenção do aparelho.", "Instalação de ar-condicionado em João Pessoa", "Instalação e manutenção de ar-condicionado em João Pessoa com circuito elétrico dedicado."],
 ];
 
+/**
+ * Administrador controlado pelas variáveis da Vercel (ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME).
+ * - Não existe admin: cria.
+ * - Já existe: atualiza o e-mail e/ou a senha do MESMO usuário (mantém marca, orçamentos etc.)
+ *   e encerra as sessões abertas quando algo muda.
+ */
+async function syncAdmin() {
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const pass = process.env.ADMIN_PASSWORD;
+  if (!email) return console.log("ADMIN_EMAIL não definido — administrador não alterado.");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return console.warn("ADMIN_EMAIL inválido — administrador não alterado.");
+  if (pass && pass.length < 10) return console.warn("ADMIN_PASSWORD precisa de pelo menos 10 caracteres — administrador não alterado.");
+  const name = process.env.ADMIN_NAME?.trim() || "Sergio";
+  const byEmail = await prisma.user.findUnique({ where: { email } });
+  const admin = byEmail?.role === "ADMIN" ? byEmail : await prisma.user.findFirst({ where: { role: "ADMIN" }, orderBy: { createdAt: "asc" } });
+  if (!admin) {
+    if (byEmail) return console.warn(`O e-mail ${email} já pertence a um eletricista assinante — escolha outro ADMIN_EMAIL.`);
+    if (!pass) return console.warn("Defina ADMIN_PASSWORD para criar o administrador.");
+    const u = await prisma.user.create({ data: { email, name, role: "ADMIN", onboardedAt: new Date(), passwordHash: await bcrypt.hash(pass, 12), brand: { create: { professionalName: name, email } } } });
+    await provisionServices(u.id);
+    return console.log(`Administrador criado: ${email}`);
+  }
+  if (byEmail && byEmail.id !== admin.id) return console.warn(`O e-mail ${email} já pertence a outra conta — e-mail do administrador não alterado.`);
+  const data: { email?: string; passwordHash?: string; failedLogins?: number; lockedUntil?: null; blocked?: boolean } = {};
+  if (admin.email !== email) data.email = email;
+  if (pass && !(await bcrypt.compare(pass, admin.passwordHash))) data.passwordHash = await bcrypt.hash(pass, 12);
+  if (!Object.keys(data).length) return console.log(`Administrador sem alterações (${email}).`);
+  await prisma.user.update({ where: { id: admin.id }, data: { ...data, failedLogins: 0, lockedUntil: null, blocked: false } });
+  await prisma.session.deleteMany({ where: { userId: admin.id } }); // obriga novo login com os dados novos
+  console.log(`Administrador atualizado:${data.email ? ` e-mail → ${email}` : ""}${data.passwordHash ? " (senha alterada)" : ""}`);
+}
+
 async function main() {
   for (const p of plans) await prisma.plan.upsert({ where: { slug: p.slug }, update: {}, create: p });
   if ((await prisma.serviceTemplate.count({ where: { minPrice: { not: null } } })) === 0) console.log(await importPriceTable(prisma));
@@ -47,17 +79,7 @@ async function main() {
     { title: "Serviços elétricos em ambiente industrial – Klabin", description: "Experiência em serviços elétricos em ambiente industrial.", serviceSlug: "manutencao-eletrica", neighborhood: null },
   ];
   for (const w of works) if (!(await prisma.portfolioWork.findFirst({ where: { title: w.title } }))) await prisma.portfolioWork.create({ data: { ...w, published: true } });
-  // Administrador criado no primeiro deploy a partir de ADMIN_EMAIL / ADMIN_PASSWORD (nunca sobrescreve senha existente)
-  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase(), pass = process.env.ADMIN_PASSWORD;
-  if (email && pass && !(await prisma.user.findUnique({ where: { email } }))) {
-    if (pass.length < 10) console.warn("ADMIN_PASSWORD precisa de pelo menos 10 caracteres — admin não criado.");
-    else {
-      const name = process.env.ADMIN_NAME || "Sergio";
-      const u = await prisma.user.create({ data: { email, name, role: "ADMIN", onboardedAt: new Date(), passwordHash: await bcrypt.hash(pass, 12), brand: { create: { professionalName: name, email } } } });
-      await provisionServices(u.id);
-      console.log(`Administrador criado: ${email}`);
-    }
-  }
+  await syncAdmin();
   console.log("Seed concluído.");
 }
 main().finally(() => prisma.$disconnect());

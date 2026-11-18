@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies, headers, type UnsafeUnwrappedHeaders } from "next/headers";
-import { redirect, notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "./db";
 import { randomToken, sha256 } from "./crypto";
@@ -44,10 +44,10 @@ export async function requireUser() {
   return u;
 }
 
-/** Área do administrador: para qualquer outra pessoa ela simplesmente "não existe" (404). */
+/** Área do administrador: qualquer outra pessoa é levada para a página inicial. */
 export async function requireAdmin() {
   const u = await getUser();
-  if (!u || u.role !== "ADMIN") notFound();
+  if (!u || u.role !== "ADMIN") redirect("/");
   return u;
 }
 
