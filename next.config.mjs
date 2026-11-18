@@ -8,7 +8,11 @@ const securityHeaders = [
 ];
 const nextConfig = {
   poweredByHeader: false,
-  experimental: { serverComponentsExternalPackages: ["@react-pdf/renderer", "sharp", "bcryptjs"], serverActions: { bodySizeLimit: "6mb" } },
+  experimental: {
+    serverComponentsExternalPackages: ["@react-pdf/renderer", "sharp", "bcryptjs"],
+    serverActions: { bodySizeLimit: "4mb" }, // Vercel aceita até 4,5 MB por requisição
+    outputFileTracingIncludes: { "/**/*": ["./public/fonts/**"] }, // fontes usadas no PDF
+  },
   async headers() { return [{ source: "/(.*)", headers: securityHeaders }]; },
 };
 export default nextConfig;

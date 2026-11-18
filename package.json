@@ -12,7 +12,8 @@
     "create-admin": "tsx scripts/create-admin.ts",
     "test": "tsx --conditions=react-server --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "import-prices": "tsx scripts/import-prices.ts"
+    "import-prices": "tsx scripts/import-prices.ts",
+    "vercel-build": "prisma generate && prisma migrate deploy && tsx prisma/seed.ts && next build"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

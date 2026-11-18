@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { importPriceTable } from "../src/lib/price-import";
+import { provisionServices } from "../src/lib/provision";
+import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 const plans = [
@@ -45,6 +47,17 @@ async function main() {
     { title: "Serviços elétricos em ambiente industrial – Klabin", description: "Experiência em serviços elétricos em ambiente industrial.", serviceSlug: "manutencao-eletrica", neighborhood: null },
   ];
   for (const w of works) if (!(await prisma.portfolioWork.findFirst({ where: { title: w.title } }))) await prisma.portfolioWork.create({ data: { ...w, published: true } });
+  // Administrador criado no primeiro deploy a partir de ADMIN_EMAIL / ADMIN_PASSWORD (nunca sobrescreve senha existente)
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase(), pass = process.env.ADMIN_PASSWORD;
+  if (email && pass && !(await prisma.user.findUnique({ where: { email } }))) {
+    if (pass.length < 10) console.warn("ADMIN_PASSWORD precisa de pelo menos 10 caracteres — admin não criado.");
+    else {
+      const name = process.env.ADMIN_NAME || "Sergio";
+      const u = await prisma.user.create({ data: { email, name, role: "ADMIN", onboardedAt: new Date(), passwordHash: await bcrypt.hash(pass, 12), brand: { create: { professionalName: name, email } } } });
+      await provisionServices(u.id);
+      console.log(`Administrador criado: ${email}`);
+    }
+  }
   console.log("Seed concluído.");
 }
 main().finally(() => prisma.$disconnect());

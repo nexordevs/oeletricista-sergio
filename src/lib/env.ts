@@ -1,7 +1,7 @@
 // Leitura sob demanda (getters): variáveis só existem no servidor e nunca vão para o navegador.
 const e = (k: string, d = "") => process.env[k] || d;
 export const env = {
-  get appUrl() { return e("APP_URL", "http://localhost:3000").replace(/\/$/, ""); },
+  get appUrl() { const v = process.env.VERCEL_PROJECT_PRODUCTION_URL; return e("APP_URL", v ? `https://${v}` : "http://localhost:3000").replace(/\/$/, ""); },
   get mpAccessToken() { return e("MP_ACCESS_TOKEN"); },
   get mpWebhookSecret() { return e("MP_WEBHOOK_SECRET"); },
   get smtpHost() { return e("SMTP_HOST"); },

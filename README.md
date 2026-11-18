@@ -55,6 +55,8 @@ Recomendado: [Vercel](https://vercel.com).
 
 ### 3. Dados iniciais e administrador
 
+Na Vercel isso é **automático**: o script `vercel-build` aplica as migrações, roda o seed e cria o admin a partir de `ADMIN_EMAIL` e `ADMIN_PASSWORD`. Os comandos abaixo são para outros servidores.
+
 Rode uma vez, com a `DATABASE_URL` de produção:
 
 ```bash

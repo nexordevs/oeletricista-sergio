@@ -26,7 +26,7 @@ export function BrandForm({ b, full }: { b: B; full: boolean }) {
           <div className="space-y-2">
             <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" className="block text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-navy file:px-4 file:py-2 file:font-bold file:text-white"
               onChange={(e) => { const f = e.target.files?.[0]; setPreview(f ? URL.createObjectURL(f) : null); }} />
-            <p className="text-xs text-muted">PNG com fundo transparente fica melhor. Até 6 MB.</p>
+            <p className="text-xs text-muted">PNG com fundo transparente fica melhor. Até 4 MB.</p>
             {b.hasLogo && <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="removeLogo" className="accent-navy" /> Remover logo atual</label>}
           </div>
         </div>
