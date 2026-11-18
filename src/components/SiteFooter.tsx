@@ -27,7 +27,7 @@ export function SiteFooter({ s, waHref }: { s: Record<string, string>; waHref: s
           <p className="mb-3 font-bold uppercase tracking-wide text-white">Contato</p>
           <a href={waHref} target="_blank" rel="noopener" className="text-lg font-bold text-white hover:text-brand">WhatsApp: {fmtPhone(s.whatsapp)}</a>
           {s.email && <p className="mt-1 text-sm">{s.email}</p>}
-          {s.instagram && <p className="mt-1 text-sm">Instagram: @{s.instagram.replace(/^@/, "")}</p>}
+          {s.instagram && <a href={`https://instagram.com/${s.instagram.replace(/^@/, "")}`} target="_blank" rel="noopener" className="mt-1 block text-sm hover:text-white">Instagram: @{s.instagram.replace(/^@/, "")}</a>}
           <ReviewButton url={s.googleReviewUrl} className="btn mt-4 border-2 border-white/20 py-2.5 text-white hover:border-brand" label="Avalie meu serviço no Google" />
         </div>
       </div>

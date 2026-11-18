@@ -17,7 +17,7 @@ export const SETTING_DEFAULTS: Record<string, { label: string; value: string; lo
   googleReviewUrl: { label: "Link de avaliação do Google (Perfil da Empresa)", value: "https://g.page/r/Cc1CDiOtR5kpECE/review" },
   faq: { label: "Perguntas frequentes (pergunta na 1ª linha, resposta abaixo; separe com uma linha em branco)", long: true, value: "Quais bairros você atende?\nAtendo João Pessoa e região, incluindo Bessa, Bancários, José Américo, Mangabeira, Manaíra, Tambaú, Cabo Branco, Altiplano, Valentina, Geisel e outros bairros. Fale comigo no WhatsApp para confirmar.\n\nComo peço um orçamento?\nChame no WhatsApp ou preencha o formulário do site, contando o que precisa. Envio o orçamento por escrito, com material e mão de obra separados.\n\nO material está incluso?\nO orçamento mostra separadamente o material e a mão de obra. Se você preferir comprar o material, cobro apenas a mão de obra.\n\nO serviço tem garantia?\nSim. A mão de obra tem garantia de 90 dias.\n\nVocê faz atendimento emergencial?\nSim. Atendo emergências elétricas como falta de energia, curto-circuito, disjuntor desarmando e cheiro de queimado. Chame no WhatsApp e explique o problema.\n\nVocê faz reparo de curto-circuito e quadro de distribuição (QDC)?\nSim. Faço diagnóstico de curto-circuito, troca de disjuntores, DR e DPS, e montagem e organização de quadros elétricos." },
   email: { label: "E-mail de contato (opcional)", value: "" },
-  instagram: { label: "Instagram (opcional, só o @)", value: "" },
+  instagram: { label: "Instagram (opcional, só o @)", value: "eletricista.sergi0" },
 };
 
 export const getSettings = cache(async () => {

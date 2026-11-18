@@ -33,7 +33,7 @@ export default async function Home() {
     telephone: "+55" + s.whatsapp.replace(/\D/g, ""), image: `${env.appUrl}/icon.svg`,
     address: { "@type": "PostalAddress", addressLocality: s.city, addressRegion: s.state, addressCountry: "BR" },
     areaServed: areas.map((a) => (a.name === s.city ? { "@type": "City", name: a.name } : { "@type": "Place", name: `${a.name}, ${s.city} - ${s.state}` })),
-    ...(profileUrl ? { sameAs: [profileUrl] } : {}),
+    sameAs: [profileUrl, s.instagram ? `https://instagram.com/${s.instagram.replace(/^@/, "")}` : ""].filter(Boolean),
     ...(testimonials.length ? { aggregateRating: { "@type": "AggregateRating", ratingValue: avg.toFixed(1), reviewCount: testimonials.length } } : {}),
     hasOfferCatalog: { "@type": "OfferCatalog", name: "Serviços elétricos", itemListElement: services.map((x) => ({ "@type": "Offer", itemOffered: { "@type": "Service", name: x.title, url: `${env.appUrl}/servicos/${x.slug}` } })) },
   };
