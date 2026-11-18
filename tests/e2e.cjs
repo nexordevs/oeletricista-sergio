@@ -3,7 +3,7 @@
 const { chromium } = require('playwright');
 const { execSync } = require('child_process');
 const B = process.env.BASE_URL || 'http://localhost:3000', S = require('os').tmpdir() + '/';
-const sql = (q) => execSync(`psql ${process.env.DATABASE_URL} -tAc "${q.replace(/"/g, '\\"')}"`).toString().trim();
+const sql = (q) => execSync(`psql ${process.env.DATABASE_URL} -tAc "${q.replace(/"/g, '\\"')}"`).toString().trim().split('\n')[0];
 let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
 async function signup(b, name, email) {
   const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } }); const p = await ctx.newPage();
@@ -72,6 +72,24 @@ async function makeQuote(p, client, beforeClick) {
   // Rascunho não é público
   const draftTok = sql(`insert into "Quote"(id,"userId",number,"clientName","shareToken","updatedAt") values ('dq${t}','${aId}',99,'X','tok${t}abcdefghijklmnop',now()) returning "shareToken"`);
   const r4 = await anon.goto(B + '/o/' + draftTok); ok(r4.status() === 404, 'rascunho não abre pelo link público');
+
+  // Pagamento pendente: assinante vê "Já paguei"; admin ativa manualmente e o valor é contabilizado
+  const bId = sql(`select id from "User" where email='b${t}@teste.local'`);
+  const prof = sql(`select id from "Plan" where slug='profissional'`);
+  const subId = sql(`insert into "Subscription"(id,"userId","planId",amount,status,"mpPreapprovalId","updatedAt") values ('sub${t}','${bId}','${prof}',34.90,'PENDING','pre_fake_${t}',now()) returning id`);
+  await Bp.goto(B + '/painel/assinatura');
+  ok(await Bp.isVisible('text=Já paguei'), 'assinante com pagamento pendente vê o botão "Já paguei"');
+  await adm.goto(B + '/admin/pagamentos');
+  ok(await adm.isVisible('text=Eletricista B'), 'admin vê a assinatura aguardando pagamento');
+  const row = adm.locator('li', { hasText: `b${t}@teste.local` });
+  await row.locator('summary:has-text("Ativar manualmente")').click();
+  adm.once('dialog', (d) => d.accept());
+  await row.locator('button:has-text("Confirmar pagamento e ativar")').click();
+  for (let i = 0; i < 30 && sql(`select status from "Subscription" where id='${subId}'`) !== 'ACTIVE'; i++) await adm.waitForTimeout(500);
+  ok(sql(`select status from "Subscription" where id='${subId}'`) === 'ACTIVE', 'admin ativou a assinatura manualmente');
+  ok(sql(`select count(*) from "Payment" where "subscriptionId"='${subId}' and status='manual' and amount=34.90`) === '1', 'pagamento manual contabilizado (R$ 34,90)');
+  await Bp.goto(B + '/painel/orcamentos/novo');
+  ok(!(await Bp.locator('button:has-text("Finalizar orçamento")').isDisabled()), 'assinante liberado após ativação manual');
 
   // Lead do site chega no admin
   await anon.goto(B + '/orcamento'); await anon.fill('#name', 'Maria Teste'); await anon.fill('#phone', '83999998888'); await anon.fill('#neighborhood', 'Manaíra');

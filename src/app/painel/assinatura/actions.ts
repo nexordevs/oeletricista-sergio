@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { mpConfigured } from "@/lib/env";
 import { createPreapproval, cancelPreapproval, syncSubscription } from "@/lib/mercadopago";
 import type { ActionState } from "@/lib/form";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function subscribe(_: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireUser();
@@ -43,4 +44,19 @@ export async function checkPayment(fd: FormData) {
   const sub = await prisma.subscription.findFirst({ where: { id: String(fd.get("id")), userId: user.id } });
   if (sub?.mpPreapprovalId) await syncSubscription(sub.id).catch((e) => console.error(e));
   revalidatePath("/painel/assinatura");
+}
+
+/** "Já paguei": consulta o Mercado Pago no servidor e devolve a situação. Nunca ativa sem pagamento aprovado. */
+export async function verifyPayment(subId: string): Promise<{ status: string; message: string }> {
+  const user = await requireUser();
+  const sub = await prisma.subscription.findFirst({ where: { id: subId, userId: user.id } });
+  if (!sub) return { status: "NOT_FOUND", message: "Assinatura não encontrada." };
+  if (!rateLimit(`verify:${user.id}`, 60, 10 * 60e3)) return { status: sub.status, message: "Muitas verificações seguidas. Aguarde alguns minutos." };
+  let status = sub.status;
+  if (sub.mpPreapprovalId) {
+    try { status = (await syncSubscription(sub.id))?.status ?? status; }
+    catch (e) { console.error(e); return { status, message: "Não consegui falar com o Mercado Pago agora. Tente de novo em instantes." }; }
+  }
+  if (status === "ACTIVE") { revalidatePath("/painel", "layout"); return { status, message: "Pagamento confirmado! Sua assinatura está ativa." }; }
+  return { status, message: "O Mercado Pago ainda não confirmou o pagamento. Pix e cartão costumam levar poucos minutos; boleto pode levar até 3 dias úteis." };
 }

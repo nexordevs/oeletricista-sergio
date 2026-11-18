@@ -3,7 +3,8 @@ import { panelContext } from "@/lib/panel";
 import { planFeatures } from "@/components/site/PlanCards";
 import { brl, fmtDate } from "@/lib/money";
 import { SubscribeForm } from "./SubscribeForm";
-import { cancelSubscription, checkPayment } from "./actions";
+import { cancelSubscription } from "./actions";
+import { PaymentChecker } from "./PaymentChecker";
 import { ConfirmButton } from "@/components/ConfirmButton";
 
 const ST: Record<string, [string, string]> = { PENDING: ["Aguardando pagamento", "bg-amber-100 text-amber-800"], ACTIVE: ["Ativa", "bg-green-100 text-green-800"], PAST_DUE: ["Pagamento pendente", "bg-red-100 text-red-700"], CANCELLED: ["Cancelada", "bg-gray-100 text-gray-700"], EXPIRED: ["Expirada", "bg-gray-100 text-gray-700"] };
@@ -35,12 +36,7 @@ export default async function Assinatura(props: { searchParams: Promise<{ plano?
             )}
           </div>
         )}
-        {pending && (
-          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 p-3">
-            <span className="text-sm font-bold text-amber-900">Pagamento do plano {pending.plan.name} ainda não confirmado.</span>
-            <form action={checkPayment}><input type="hidden" name="id" value={pending.id} /><button className="btn-outline btn-sm">Verificar agora</button></form>
-          </div>
-        )}
+        {pending && <div className="mt-4"><PaymentChecker subId={pending.id} planName={pending.plan.name} /></div>}
       </section>
 
       <section>

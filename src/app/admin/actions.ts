@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { processImage, ImageError } from "@/lib/images";
 import { SETTING_DEFAULTS } from "@/lib/settings";
+import { syncSubscription, syncOpenSubscriptions, activateManually } from "@/lib/mercadopago";
 import { parseForm, zText, zOpt, zMoney, type ActionState } from "@/lib/form";
 
 const audit = (actorId: string, action: string, target?: string, details?: string) => prisma.auditLog.create({ data: { actorId, action, target, details } });
@@ -183,4 +184,28 @@ export async function removeProfilePhoto() {
   await requireAdmin();
   await prisma.siteImage.deleteMany({ where: { key: "profile" } });
   revalidatePath("/", "layout");
+}
+
+// ---------- Assinaturas: verificação e ativação manual ----------
+export async function adminVerifySubscription(fd: FormData) {
+  const a = await requireAdmin();
+  const id = String(fd.get("id"));
+  try { await syncSubscription(id); } catch (e) { console.error(e); }
+  await audit(a.id, "sub.verify", id);
+  revalidatePath("/admin", "layout");
+}
+export async function adminVerifyAll() {
+  const a = await requireAdmin();
+  const r = await syncOpenSubscriptions();
+  await audit(a.id, "sub.verify_all", undefined, JSON.stringify(r));
+  revalidatePath("/admin", "layout");
+}
+export async function adminActivateSubscription(_: ActionState, fd: FormData): Promise<ActionState> {
+  const a = await requireAdmin();
+  const p = parseForm(z.object({ id: z.string().min(1), amount: zMoney, note: zOpt(200) }), fd);
+  if (!p.ok) return p.error;
+  await activateManually(p.data.id, p.data.amount, p.data.note || "Pagamento confirmado manualmente pelo administrador");
+  await audit(a.id, "sub.activate_manual", p.data.id, String(p.data.amount));
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: "Assinatura ativada e pagamento registrado." };
 }

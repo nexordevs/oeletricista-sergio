@@ -5,7 +5,7 @@ process.env.MP_ACCESS_TOKEN = "TEST-token";
 process.env.MP_WEBHOOK_SECRET = "segredo-teste";
 import { createHmac } from "crypto";
 import { prisma } from "../src/lib/db";
-import { verifyWebhookSignature, syncSubscription } from "../src/lib/mercadopago";
+import { verifyWebhookSignature, syncSubscription, activateManually } from "../src/lib/mercadopago";
 import { getAccess } from "../src/lib/access";
 
 let userId = "", subId = "";
@@ -65,4 +65,28 @@ test("cancelada mantém acesso só até o fim do período pago", async () => {
   assert.equal((await getAccess(await prisma.user.findUniqueOrThrow({ where: { id: userId } }))).active, true);
   await prisma.subscription.update({ where: { id: subId }, data: { currentPeriodEnd: new Date(Date.now() - 1000) } });
   assert.equal((await getAccess(await prisma.user.findUniqueOrThrow({ where: { id: userId } }))).active, false);
+});
+
+test("pagamento encontrado só pela busca de pagamentos (fallback) também ativa", async () => {
+  const plan = await prisma.plan.findUniqueOrThrow({ where: { slug: "inicial" } });
+  const s2 = await prisma.subscription.create({ data: { userId, planId: plan.id, amount: plan.priceMonthly, status: "PENDING", mpPreapprovalId: `pre2_${Date.now()}` } });
+  mp = { [`/preapproval/${s2.mpPreapprovalId}`]: { id: s2.mpPreapprovalId, status: "authorized", external_reference: s2.id },
+    "/authorized_payments/search": { results: [] },
+    "/v1/payments/search": { results: [{ id: 990011, status: "approved", date_approved: new Date().toISOString(), transaction_amount: 19.9 }] } };
+  const r = await syncSubscription(s2.id);
+  assert.equal(r?.status, "ACTIVE");
+  assert.equal(await prisma.payment.count({ where: { mpPaymentId: "990011" } }), 1);
+});
+
+test("ativação manual pelo admin registra o valor e libera o acesso", async () => {
+  const plan = await prisma.plan.findUniqueOrThrow({ where: { slug: "premium" } });
+  const s3 = await prisma.subscription.create({ data: { userId, planId: plan.id, amount: plan.priceMonthly, status: "PENDING" } });
+  await activateManually(s3.id, 49.9, "Pix recebido");
+  const after = await prisma.subscription.findUniqueOrThrow({ where: { id: s3.id } });
+  assert.equal(after.status, "ACTIVE");
+  assert.ok(after.currentPeriodEnd! > new Date(Date.now() + 25 * 864e5));
+  const pay = await prisma.payment.findFirstOrThrow({ where: { subscriptionId: s3.id } });
+  assert.equal(pay.status, "manual"); assert.equal(Number(pay.amount), 49.9);
+  const a = await getAccess(await prisma.user.findUniqueOrThrow({ where: { id: userId } }));
+  assert.equal(a.active, true);
 });

@@ -1,4 +1,5 @@
 import { Shell, type NavItem } from "@/components/panel/Shell";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { requireAdmin } from "@/lib/auth";
 import { logout } from "@/app/(auth)/actions";
 import { IconHome, IconUsers, IconCard, IconList, IconInbox, IconImage, IconStar, IconSettings, IconBolt, IconFile } from "@/components/icons";
@@ -28,5 +29,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/solicitacoes", label: "Pedidos", icon: <IconInbox className="h-5 w-5" /> },
     { href: "/admin/site", label: "Site", icon: <IconSettings className="h-5 w-5" /> },
   ];
-  return <Shell nav={nav} mobileNav={mobileNav} user={u.name} titles={titles} logout={logout}>{children}</Shell>;
+  return <Shell nav={nav} mobileNav={mobileNav} user={u.name} titles={titles} logout={logout}><AutoRefresh seconds={30} />{children}</Shell>;
 }

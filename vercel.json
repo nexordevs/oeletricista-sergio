@@ -3,5 +3,13 @@
   "framework": "nextjs",
   "buildCommand": "npm run vercel-build",
   "installCommand": "npm ci",
-  "regions": ["pdx1"]
+  "regions": [
+    "pdx1"
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/assinaturas",
+      "schedule": "17 11 * * *"
+    }
+  ]
 }

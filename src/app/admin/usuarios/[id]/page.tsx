@@ -7,6 +7,7 @@ import { ActionForm } from "@/components/ActionForm";
 import { Submit } from "@/components/ui";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { toggleBlock, grantAccess, revokeAccess } from "../../actions";
+import { SubscriptionAdmin } from "../../SubscriptionAdmin";
 
 export default async function Usuario(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -26,7 +27,7 @@ export default async function Usuario(props: { params: Promise<{ id: string }> }
           {u.brand && <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2"><div><dt className="text-muted">Nome profissional</dt><dd className="font-bold">{u.brand.professionalName}</dd></div><div><dt className="text-muted">Empresa</dt><dd className="font-bold">{u.brand.companyName || "—"}</dd></div><div><dt className="text-muted">CPF/CNPJ</dt><dd className="font-bold">{u.brand.document || "—"}</dd></div><div><dt className="text-muted">WhatsApp</dt><dd className="font-bold">{fmtPhone(u.brand.whatsapp) || "—"}</dd></div><div className="sm:col-span-2"><dt className="text-muted">Endereço</dt><dd className="font-bold">{u.brand.address || "—"}</dd></div></dl>}
         </section>
         <section className="card p-0"><p className="px-5 py-4 font-bold text-navy">Assinaturas</p>
-          {u.subscriptions.length === 0 ? <p className="px-5 pb-5 text-sm text-muted">Nenhuma.</p> : <div className="overflow-x-auto px-3 pb-3"><table className="table-x min-w-[520px]"><thead><tr><th>Plano</th><th>Ciclo</th><th>Status</th><th>Até</th><th>MP</th></tr></thead><tbody>{u.subscriptions.map((s) => <tr key={s.id}><td className="font-bold">{s.plan.name} · {brl(s.amount)}</td><td>{s.cycle === "YEARLY" ? "Anual" : "Mensal"}</td><td>{s.status}</td><td>{fmtDate(s.currentPeriodEnd)}</td><td className="text-xs text-muted">{s.mpPreapprovalId || "—"}</td></tr>)}</tbody></table></div>}
+          {u.subscriptions.length === 0 ? <p className="px-5 pb-5 text-sm text-muted">Nenhuma.</p> : <div className="overflow-x-auto px-3 pb-3"><table className="table-x min-w-[640px]"><thead><tr><th>Plano</th><th>Ciclo</th><th>Status</th><th>Até</th><th>Ações</th></tr></thead><tbody>{u.subscriptions.map((s) => <tr key={s.id}><td className="font-bold">{s.plan.name} · {brl(s.amount)}</td><td>{s.cycle === "YEARLY" ? "Anual" : "Mensal"}</td><td>{s.status}</td><td>{fmtDate(s.currentPeriodEnd)}</td><td>{s.status !== "CANCELLED" ? <SubscriptionAdmin id={s.id} amount={s.amount.toString()} hasMp={Boolean(s.mpPreapprovalId)} /> : <span className="text-xs text-muted">—</span>}</td></tr>)}</tbody></table></div>}
         </section>
         <section className="card p-0"><p className="px-5 py-4 font-bold text-navy">Pagamentos</p>
           {u.payments.length === 0 ? <p className="px-5 pb-5 text-sm text-muted">Nenhum.</p> : <div className="overflow-x-auto px-3 pb-3"><table className="table-x min-w-[480px]"><thead><tr><th>Data</th><th>Descrição</th><th>Status</th><th className="text-right">Valor</th></tr></thead><tbody>{u.payments.map((p) => <tr key={p.id}><td>{fmtDate(p.paidAt || p.createdAt)}</td><td>{p.description}</td><td>{p.status}</td><td className="text-right font-bold">{brl(p.amount)}</td></tr>)}</tbody></table></div>}
