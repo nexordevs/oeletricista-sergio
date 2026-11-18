@@ -10,8 +10,9 @@ import type { ActionState } from "@/lib/form";
 
 export async function subscribe(_: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireUser();
-  const p = z.object({ planId: z.string().min(1), cycle: z.enum(["MONTHLY", "YEARLY"]) }).safeParse({ planId: fd.get("planId"), cycle: fd.get("cycle") });
-  if (!p.success) return { error: "Escolha um plano." };
+  const p = z.object({ planId: z.string().min(1), cycle: z.enum(["MONTHLY", "YEARLY"]), payerEmail: z.string().trim().toLowerCase().pipe(z.email()) })
+    .safeParse({ planId: fd.get("planId"), cycle: fd.get("cycle"), payerEmail: fd.get("payerEmail") || user.email });
+  if (!p.success) return { error: p.error.issues.some((i) => i.path[0] === "payerEmail") ? "Informe um e-mail válido da sua conta Mercado Pago." : "Escolha um plano." };
   if (!mpConfigured()) return { error: "O pagamento online ainda não foi configurado pela administração. Fale com o suporte para liberar seu acesso." };
   const plan = await prisma.plan.findFirst({ where: { id: p.data.planId, active: true } });
   if (!plan) return { error: "Plano indisponível." };
@@ -19,7 +20,7 @@ export async function subscribe(_: ActionState, fd: FormData): Promise<ActionSta
   const amount = p.data.cycle === "YEARLY" ? plan.priceYearly : plan.priceMonthly;
   const sub = await prisma.subscription.create({ data: { userId: user.id, planId: plan.id, cycle: p.data.cycle, amount, status: "PENDING" }, include: { plan: true } });
   let url: string;
-  try { url = await createPreapproval(sub, user.email); }
+  try { url = await createPreapproval(sub, p.data.payerEmail); }
   catch (e) {
     console.error(e);
     await prisma.subscription.update({ where: { id: sub.id }, data: { status: "EXPIRED" } });

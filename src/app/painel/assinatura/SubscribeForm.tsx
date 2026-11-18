@@ -7,7 +7,7 @@ import { IconCheck } from "@/components/icons";
 type P = { id: string; slug: string; name: string; description: string | null; monthly: number; yearly: number; features: string[]; highlight: boolean; current: boolean };
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export function SubscribeForm({ plans, preselect }: { plans: P[]; preselect?: string }) {
+export function SubscribeForm({ plans, preselect, email }: { plans: P[]; preselect?: string; email: string }) {
   const [s, a] = useActionState(subscribe, undefined);
   const [cycle, setCycle] = useState<"MONTHLY" | "YEARLY">("MONTHLY");
   const [plan, setPlan] = useState(plans.find((p) => p.slug === preselect)?.id || plans.find((p) => p.highlight)?.id || plans[0]?.id);
@@ -30,6 +30,11 @@ export function SubscribeForm({ plans, preselect }: { plans: P[]; preselect?: st
             <ul className="mt-4 space-y-1.5 text-sm">{p.features.map((f) => <li key={f} className="flex gap-1.5"><IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-dark" />{f}</li>)}</ul>
           </button>
         ))}
+      </div>
+      <div className="max-w-md">
+        <label className="label" htmlFor="payerEmail">E-mail da sua conta Mercado Pago</label>
+        <input id="payerEmail" name="payerEmail" type="email" defaultValue={email} className="input" required />
+        <p className="mt-1 text-xs text-muted">Precisa ser o mesmo e-mail que você usa para entrar no Mercado Pago, senão o pagamento é recusado.</p>
       </div>
       <Submit className="btn-primary w-full sm:w-auto" pending="Abrindo Mercado Pago...">Continuar para pagamento</Submit>
       <p className="text-xs text-muted">Pagamento recorrente processado pelo Mercado Pago. O acesso é liberado automaticamente quando o pagamento for aprovado. Cancele quando quiser.</p>

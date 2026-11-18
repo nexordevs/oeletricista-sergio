@@ -45,7 +45,7 @@ export default async function Assinatura(props: { searchParams: Promise<{ plano?
 
       <section>
         <p className="mb-3 text-lg font-bold text-navy">{access.active ? "Trocar de plano" : "Escolha seu plano"}</p>
-        <SubscribeForm preselect={searchParams.plano} plans={plans.map((p) => ({ id: p.id, slug: p.slug, name: p.name, description: p.description, monthly: Number(p.priceMonthly), yearly: Number(p.priceYearly), features: planFeatures(p), highlight: p.highlight, current: access.plan?.id === p.id && access.source === "subscription" }))} />
+        <SubscribeForm email={user.email} preselect={searchParams.plano} plans={plans.map((p) => ({ id: p.id, slug: p.slug, name: p.name, description: p.description, monthly: Number(p.priceMonthly), yearly: Number(p.priceYearly), features: planFeatures(p), highlight: p.highlight, current: access.plan?.id === p.id && access.source === "subscription" }))} />
       </section>
 
       <section className="card p-0">
