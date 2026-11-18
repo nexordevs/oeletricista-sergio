@@ -10,7 +10,8 @@ import { deleteClient } from "../actions";
 import { IconPlus, IconWhatsApp } from "@/components/icons";
 import { ConfirmButton } from "@/components/ConfirmButton";
 
-export default async function Cliente({ params }: { params: { id: string } }) {
+export default async function Cliente(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, access } = await panelContext();
   const c = await prisma.client.findFirst({ where: { id: params.id, userId: user.id } });
   if (!c) notFound();

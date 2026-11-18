@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { fmtDate } from "@/lib/money";
 
-export default async function Usuarios({ searchParams: sp }: { searchParams: { q?: string; f?: string } }) {
+export default async function Usuarios(props: { searchParams: Promise<{ q?: string; f?: string }> }) {
+  const sp = await props.searchParams;
   await requireAdmin();
   const now = new Date();
   const where: Prisma.UserWhereInput = { role: "ELECTRICIAN" };

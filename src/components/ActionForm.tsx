@@ -1,11 +1,10 @@
 "use client";
-import { useFormState } from "react-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useActionState } from "react";
 import type { ActionState } from "@/lib/form";
 
 /** Formulário genérico para ações do servidor com mensagem de sucesso/erro. */
 export function ActionForm({ action, children, className = "space-y-4", reset }: { action: (s: ActionState, fd: FormData) => Promise<ActionState>; children: React.ReactNode; className?: string; reset?: boolean }) {
-  const [s, a] = useFormState(action, undefined);
+  const [s, a] = useActionState(action, undefined);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => { if (s?.ok && reset) ref.current?.reset(); }, [s, reset]);
   return (

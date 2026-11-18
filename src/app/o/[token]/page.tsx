@@ -11,7 +11,8 @@ export const metadata: Metadata = { title: "Orçamento", robots: { index: false,
 const KIND: Record<string, string> = { SERVICE: "Serviços", MATERIAL: "Material", LABOR: "Mão de obra" };
 
 // Página que o cliente final abre pelo link: mostra SOMENTE a identidade do eletricista.
-export default async function PublicQuote({ params }: { params: { token: string } }) {
+export default async function PublicQuote(props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const d = await publicQuote(params.token);
   if (!d) notFound();
   const { quote, brand } = d;

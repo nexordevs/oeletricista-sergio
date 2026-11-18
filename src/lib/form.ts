@@ -1,4 +1,6 @@
 import { z } from "zod";
+// Mensagens de validação em português (zod v4)
+z.config(z.locales.pt());
 export type ActionState = { ok?: boolean; error?: string; fields?: Record<string, string>; message?: string; data?: Record<string, string> } | undefined;
 export type Parsed<T> = { ok: true; data: T } | { ok: false; error: NonNullable<ActionState> };
 export function parseForm<T extends z.ZodTypeAny>(schema: T, fd: FormData): Parsed<z.infer<T>> {
@@ -7,7 +9,7 @@ export function parseForm<T extends z.ZodTypeAny>(schema: T, fd: FormData): Pars
   const r = schema.safeParse(raw);
   if (r.success) return { ok: true, data: r.data };
   const fields: Record<string, string> = {};
-  for (const i of r.error.issues) fields[String(i.path[0])] ??= i.message;
+  for (const i of r.error.issues) fields[String(i.path[0])] ??= i.code === "invalid_type" && i.input === undefined ? "Campo obrigatório" : i.message;
   return { ok: false, error: { error: "Confira os campos destacados.", fields } };
 }
 export const zText = (min = 1, max = 200, msg = "Campo obrigatório") => z.string().min(min, msg).max(max, `Máximo de ${max} caracteres`);

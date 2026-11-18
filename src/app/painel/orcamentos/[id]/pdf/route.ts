@@ -2,7 +2,8 @@ import { prisma } from "@/lib/db";
 import { getUser } from "@/lib/auth";
 import { renderQuotePdf, pdfFilename } from "@/lib/pdf/QuotePdf";
 export const runtime = "nodejs";
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
   const quote = await prisma.quote.findFirst({ where: { id: params.id, userId: user.id }, include: { items: true } });

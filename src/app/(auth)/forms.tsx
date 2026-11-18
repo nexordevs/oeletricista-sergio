@@ -1,11 +1,11 @@
 "use client";
+import { useActionState } from "react";
 import Link from "next/link";
-import { useFormState } from "react-dom";
 import { login, signup, requestReset, resetPassword } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
 
 export function LoginForm({ next }: { next?: string }) {
-  const [s, a] = useFormState(login, undefined);
+  const [s, a] = useActionState(login, undefined);
   return (
     <form action={a} className="space-y-4" noValidate>
       <FormMessage state={s} />
@@ -19,7 +19,7 @@ export function LoginForm({ next }: { next?: string }) {
 }
 
 export function SignupForm({ plano }: { plano?: string }) {
-  const [s, a] = useFormState(signup, undefined);
+  const [s, a] = useActionState(signup, undefined);
   return (
     <form action={a} className="space-y-4" noValidate>
       <FormMessage state={s} />
@@ -38,7 +38,7 @@ export function SignupForm({ plano }: { plano?: string }) {
 }
 
 export function ForgotForm() {
-  const [s, a] = useFormState(requestReset, undefined);
+  const [s, a] = useActionState(requestReset, undefined);
   return (
     <form action={a} className="space-y-4" noValidate>
       <FormMessage state={s} />
@@ -52,7 +52,7 @@ export function ForgotForm() {
 }
 
 export function ResetForm({ token }: { token: string }) {
-  const [s, a] = useFormState(resetPassword, undefined);
+  const [s, a] = useActionState(resetPassword, undefined);
   if (s?.ok) return <div className="space-y-4"><FormMessage state={s} /><Link href="/entrar" className="btn-primary w-full">Entrar</Link></div>;
   return (
     <form action={a} className="space-y-4" noValidate>

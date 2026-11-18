@@ -10,7 +10,8 @@ import { IconPlus, IconFile } from "@/components/icons";
 type SP = { q?: string; status?: string; de?: string; ate?: string; servico?: string };
 const validDate = (s?: string) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : undefined);
 
-export default async function Lista({ searchParams: sp }: { searchParams: SP }) {
+export default async function Lista(props: { searchParams: Promise<SP> }) {
+  const sp = await props.searchParams;
   const { user } = await panelContext();
   await expireQuotes(user.id);
   const where: Prisma.QuoteWhereInput = { userId: user.id };

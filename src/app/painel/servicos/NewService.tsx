@@ -1,10 +1,9 @@
 "use client";
-import { useFormState } from "react-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useActionState } from "react";
 import { saveService } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
 export function NewService({ categories }: { categories: string[] }) {
-  const [s, a] = useFormState(saveService, undefined);
+  const [s, a] = useActionState(saveService, undefined);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => { if (s?.ok) ref.current?.reset(); }, [s]);
   return (

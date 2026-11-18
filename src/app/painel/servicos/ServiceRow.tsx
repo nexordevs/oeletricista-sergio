@@ -1,5 +1,5 @@
 "use client";
-import { useFormState } from "react-dom";
+import { useActionState } from "react";
 import { saveService, deleteService } from "./actions";
 import { Submit } from "@/components/ui";
 import { ConfirmButton } from "@/components/ConfirmButton";
@@ -7,7 +7,7 @@ import { brl } from "@/lib/money";
 
 type S = { id: string; name: string; unit: string; price: string; category: string; suggested: string | null; min: string | null; max: string | null };
 export function ServiceRow({ s }: { s: S }) {
-  const [st, a] = useFormState(saveService, undefined);
+  const [st, a] = useActionState(saveService, undefined);
   const diff = s.suggested != null && Number(s.suggested) !== Number(s.price);
   return (
     <div className="border-b border-line px-4 py-3 last:border-0">

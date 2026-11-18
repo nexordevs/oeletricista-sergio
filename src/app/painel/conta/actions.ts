@@ -17,7 +17,7 @@ export async function saveAccount(_: ActionState, fd: FormData): Promise<ActionS
     if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/\d/.test(password)) return { error: "Confira os campos.", fields: { password: "Mínimo 8 caracteres, com letras e números" } };
     if (!current || !(await verifyPassword(current, user.passwordHash))) return { error: "Confira os campos.", fields: { current: "Senha atual incorreta" } };
     data.passwordHash = await hashPassword(password);
-    const sid = cookies().get("sid")?.value;
+    const sid = (await cookies()).get("sid")?.value;
     await prisma.session.deleteMany({ where: { userId: user.id, NOT: { id: sid ? sha256(sid) : "" } } }); // encerra outras sessões
   }
   await prisma.user.update({ where: { id: user.id }, data });

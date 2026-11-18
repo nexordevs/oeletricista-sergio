@@ -8,7 +8,8 @@ import { EntryForm } from "./EntryForm";
 import { deleteEntry } from "./actions";
 import { ConfirmButton } from "@/components/ConfirmButton";
 
-export default async function Financeiro({ searchParams }: { searchParams: { m?: string } }) {
+export default async function Financeiro(props: { searchParams: Promise<{ m?: string }> }) {
+  const searchParams = await props.searchParams;
   const { user, access } = await panelContext();
   if (!hasFeature(access, "finance")) return <Locked feature="O controle financeiro" />;
   const now = new Date(Date.now() - 3 * 3600e3);

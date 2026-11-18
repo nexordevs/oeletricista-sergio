@@ -12,13 +12,15 @@ import { IconWhatsApp } from "@/components/icons";
 export const revalidate = 300;
 const get = (slug: string) => prisma.portfolioService.findFirst({ where: { slug, published: true } });
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const s = await get(params.slug);
   if (!s) return {};
   return { title: s.seoTitle || s.title, description: s.seoDescription || s.summary, alternates: { canonical: `/servicos/${s.slug}` } };
 }
 
-export default async function Servico({ params }: { params: { slug: string } }) {
+export default async function Servico(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const s = await get(params.slug);
   if (!s) notFound();
   const st = await getSettings();

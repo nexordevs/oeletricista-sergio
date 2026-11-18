@@ -8,7 +8,8 @@ import { ConfirmButton } from "@/components/ConfirmButton";
 
 const ST: Record<string, [string, string]> = { PENDING: ["Aguardando pagamento", "bg-amber-100 text-amber-800"], ACTIVE: ["Ativa", "bg-green-100 text-green-800"], PAST_DUE: ["Pagamento pendente", "bg-red-100 text-red-700"], CANCELLED: ["Cancelada", "bg-gray-100 text-gray-700"], EXPIRED: ["Expirada", "bg-gray-100 text-gray-700"] };
 
-export default async function Assinatura({ searchParams }: { searchParams: { plano?: string; limite?: string } }) {
+export default async function Assinatura(props: { searchParams: Promise<{ plano?: string; limite?: string }> }) {
+  const searchParams = await props.searchParams;
   const { user, access } = await panelContext();
   const [plans, subs, payments] = await Promise.all([
     prisma.plan.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),

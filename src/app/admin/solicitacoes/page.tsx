@@ -6,7 +6,8 @@ import { fmtDate, fmtPhone, waLink } from "@/lib/money";
 import { setLeadStatus } from "../actions";
 import { IconWhatsApp } from "@/components/icons";
 const ST: Record<LeadStatus, [string, string]> = { NEW: ["Nova", "bg-brand text-navy"], CONTACTED: ["Em contato", "bg-blue-100 text-blue-800"], CLOSED: ["Fechado", "bg-green-100 text-green-800"], DISCARDED: ["Descartado", "bg-gray-100 text-gray-600"] };
-export default async function Solicitacoes({ searchParams }: { searchParams: { s?: string } }) {
+export default async function Solicitacoes(props: { searchParams: Promise<{ s?: string }> }) {
+  const searchParams = await props.searchParams;
   await requireAdmin();
   const s = searchParams.s && searchParams.s in ST ? (searchParams.s as LeadStatus) : undefined;
   const leads = await prisma.leadRequest.findMany({ where: s ? { status: s } : {}, orderBy: { createdAt: "desc" }, take: 200 });

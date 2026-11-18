@@ -1,12 +1,11 @@
 "use client";
-import { useFormState } from "react-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useActionState } from "react";
 import { saveClient } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
 
 type C = { id?: string; name?: string; phone?: string | null; email?: string | null; address?: string | null; notes?: string | null };
 export function ClientForm({ c = {}, back, onDone }: { c?: C; back?: string; onDone?: () => void }) {
-  const [s, a] = useFormState(saveClient, undefined);
+  const [s, a] = useActionState(saveClient, undefined);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => { if (s?.ok && !c.id) { ref.current?.reset(); onDone?.(); } }, [s, c.id, onDone]);
   return (

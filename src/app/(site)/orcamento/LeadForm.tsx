@@ -1,11 +1,11 @@
 "use client";
-import { useFormState } from "react-dom";
+import { useActionState } from "react";
 import { createLead } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
 import { IconWhatsApp, IconCheck } from "@/components/icons";
 
 export function LeadForm({ services, wa, preset, reviewUrl }: { services: string[]; wa: string; preset?: string; reviewUrl?: string }) {
-  const [state, action] = useFormState(createLead, undefined);
+  const [state, action] = useActionState(createLead, undefined);
   if (state?.ok && state.data) {
     const d = state.data;
     const msg = `Olá! Acabei de pedir um orçamento pelo site.\nNome: ${d.name}\nBairro: ${d.neighborhood}\nServiço: ${d.service}${d.description ? `\nDetalhes: ${d.description}` : ""}`;

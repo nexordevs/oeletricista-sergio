@@ -1,6 +1,5 @@
 "use client";
-import { useState } from "react";
-import { useFormState } from "react-dom";
+import { useState, useActionState } from "react";
 import { subscribe } from "./actions";
 import { Submit, FormMessage } from "@/components/ui";
 import { IconCheck } from "@/components/icons";
@@ -9,7 +8,7 @@ type P = { id: string; slug: string; name: string; description: string | null; m
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function SubscribeForm({ plans, preselect }: { plans: P[]; preselect?: string }) {
-  const [s, a] = useFormState(subscribe, undefined);
+  const [s, a] = useActionState(subscribe, undefined);
   const [cycle, setCycle] = useState<"MONTHLY" | "YEARLY">("MONTHLY");
   const [plan, setPlan] = useState(plans.find((p) => p.slug === preselect)?.id || plans.find((p) => p.highlight)?.id || plans[0]?.id);
   return (

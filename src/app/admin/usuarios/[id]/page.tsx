@@ -8,7 +8,8 @@ import { Submit } from "@/components/ui";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { toggleBlock, grantAccess, revokeAccess } from "../../actions";
 
-export default async function Usuario({ params }: { params: { id: string } }) {
+export default async function Usuario(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await requireAdmin();
   const u = await prisma.user.findUnique({ where: { id: params.id }, include: { brand: { select: { professionalName: true, companyName: true, document: true, whatsapp: true, phone: true, address: true } }, subscriptions: { include: { plan: true }, orderBy: { createdAt: "desc" } }, payments: { orderBy: { createdAt: "desc" }, take: 30 }, _count: { select: { quotes: true, clients: true } } } });
   if (!u) notFound();

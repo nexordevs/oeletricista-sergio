@@ -5,7 +5,10 @@ import { fmtPhone } from "@/lib/money";
 import { ClientForm } from "./ClientForm";
 import { IconUsers } from "@/components/icons";
 
-export default async function Clientes({ searchParams }: { searchParams: { q?: string; novo?: string; back?: string } }) {
+export default async function Clientes(
+  props: { searchParams: Promise<{ q?: string; novo?: string; back?: string }> }
+) {
+  const searchParams = await props.searchParams;
   const { user } = await panelContext();
   const q = (searchParams.q || "").trim().slice(0, 80);
   const clients = await prisma.client.findMany({

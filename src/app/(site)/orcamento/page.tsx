@@ -7,7 +7,8 @@ import { IconWhatsApp } from "@/components/icons";
 
 export const metadata: Metadata = { title: "Pedir orçamento de eletricista", description: "Solicite orçamento de serviços elétricos em João Pessoa – PB. Resposta rápida pelo WhatsApp.", alternates: { canonical: "/orcamento" } };
 
-export default async function Orcamento({ searchParams }: { searchParams: { servico?: string } }) {
+export default async function Orcamento(props: { searchParams: Promise<{ servico?: string }> }) {
+  const searchParams = await props.searchParams;
   const s = await getSettings();
   const services = (await prisma.portfolioService.findMany({ where: { published: true }, orderBy: { sortOrder: "asc" }, select: { title: true } })).map((x) => x.title);
   const preset = services.includes(searchParams.servico || "") ? searchParams.servico : undefined;

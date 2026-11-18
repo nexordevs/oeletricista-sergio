@@ -1,5 +1,5 @@
 import "server-only";
-import { cookies, headers } from "next/headers";
+import { cookies, headers, type UnsafeUnwrappedHeaders } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "./db";
@@ -17,21 +17,21 @@ export async function createSession(userId: string) {
   const token = randomToken();
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 864e5);
   await prisma.session.create({
-    data: { id: sha256(token), userId, expiresAt, userAgent: headers().get("user-agent")?.slice(0, 200) },
+    data: { id: sha256(token), userId, expiresAt, userAgent: (await headers()).get("user-agent")?.slice(0, 200) },
   });
-  cookies().set(COOKIE, token, {
+  (await cookies()).set(COOKIE, token, {
     httpOnly: true, secure: env.isProd, sameSite: "lax", path: "/", expires: expiresAt,
   });
 }
 
 export async function destroySession() {
-  const t = cookies().get(COOKIE)?.value;
+  const t = (await cookies()).get(COOKIE)?.value;
   if (t) await prisma.session.deleteMany({ where: { id: sha256(t) } });
-  cookies().delete(COOKIE);
+  (await cookies()).delete(COOKIE);
 }
 
 export async function getUser(): Promise<User | null> {
-  const t = cookies().get(COOKIE)?.value;
+  const t = (await cookies()).get(COOKIE)?.value;
   if (!t) return null;
   const s = await prisma.session.findUnique({ where: { id: sha256(t) }, include: { user: true } });
   if (!s || s.expiresAt < new Date() || s.user.blocked) return null;
@@ -51,6 +51,6 @@ export async function requireAdmin() {
 }
 
 export function clientIp() {
-  const h = headers();
+  const h = (headers() as unknown as UnsafeUnwrappedHeaders);
   return (h.get("x-forwarded-for")?.split(",")[0] || h.get("x-real-ip") || "local").trim();
 }

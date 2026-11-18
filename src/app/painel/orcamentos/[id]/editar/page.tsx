@@ -5,7 +5,8 @@ import { QuoteEditor } from "../../QuoteEditor";
 import { editorData } from "../../editor-data";
 
 const f = (n: unknown) => Number(n).toFixed(2).replace(".", ",");
-export default async function Editar({ params }: { params: { id: string } }) {
+export default async function Editar(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, access } = await panelContext();
   const q = await prisma.quote.findFirst({ where: { id: params.id, userId: user.id }, include: { items: { orderBy: { position: "asc" } } } });
   if (!q) notFound();

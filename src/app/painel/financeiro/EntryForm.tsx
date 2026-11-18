@@ -1,11 +1,10 @@
 "use client";
-import { useFormState } from "react-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useActionState } from "react";
 import { addEntry } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
 
 export function EntryForm({ quotes, today }: { quotes: { id: string; label: string; total: string }[]; today: string }) {
-  const [s, a] = useFormState(addEntry, undefined);
+  const [s, a] = useActionState(addEntry, undefined);
   const ref = useRef<HTMLFormElement>(null);
   const [desc, setDesc] = useState(""); const [amount, setAmount] = useState("");
   useEffect(() => { if (s?.ok) { ref.current?.reset(); setDesc(""); setAmount(""); } }, [s]);

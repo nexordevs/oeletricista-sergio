@@ -15,7 +15,11 @@ import { IconCheck } from "@/components/icons";
 
 const KIND: Record<string, string> = { SERVICE: "Serviço", MATERIAL: "Material", LABOR: "Mão de obra" };
 
-export default async function Detalhe({ params, searchParams }: { params: { id: string }; searchParams: { salvo?: string } }) {
+export default async function Detalhe(
+  props: { params: Promise<{ id: string }>; searchParams: Promise<{ salvo?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const { user, access } = await panelContext();
   await expireQuotes(user.id);
   const q = await prisma.quote.findFirst({ where: { id: params.id, userId: user.id }, include: { items: { orderBy: { position: "asc" } } } });

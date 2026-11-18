@@ -1,6 +1,5 @@
 "use client";
-import { useFormState } from "react-dom";
-import { useState } from "react";
+import { useState, useActionState } from "react";
 import Link from "next/link";
 import { saveBrand } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
@@ -8,7 +7,7 @@ import { Submit, FormMessage, Field } from "@/components/ui";
 type B = { professionalName: string; companyName: string | null; document: string | null; phone: string | null; whatsapp: string | null; address: string | null; email: string | null; tagline: string | null; primaryColor: string; accentColor: string; defaultPaymentTerms: string | null; defaultExecution: string | null; defaultValidityDays: number; defaultNotes: string | null; hasLogo: boolean; hasSignature: boolean; v: number };
 
 export function BrandForm({ b, full }: { b: B; full: boolean }) {
-  const [s, a] = useFormState(saveBrand, undefined);
+  const [s, a] = useActionState(saveBrand, undefined);
   const [primary, setPrimary] = useState(b.primaryColor);
   const [accent, setAccent] = useState(b.accentColor);
   const [preview, setPreview] = useState<string | null>(null);

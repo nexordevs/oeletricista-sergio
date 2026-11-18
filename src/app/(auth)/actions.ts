@@ -18,7 +18,7 @@ const signupSchema = z.object({
   name: zText(2, 80, "Informe seu nome"),
   email: zEmail,
   password: zPass,
-  terms: z.literal("on", { errorMap: () => ({ message: "Aceite os termos para continuar" }) }),
+  terms: z.literal("on", { error: "Aceite os termos para continuar" }),
   plano: z.string().max(40).optional(),
 });
 

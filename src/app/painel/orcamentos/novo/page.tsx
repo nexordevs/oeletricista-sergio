@@ -3,7 +3,8 @@ import { canCreateQuote } from "@/lib/access";
 import { QuoteEditor } from "../QuoteEditor";
 import { editorData } from "../editor-data";
 
-export default async function Novo({ searchParams }: { searchParams: { cliente?: string } }) {
+export default async function Novo(props: { searchParams: Promise<{ cliente?: string }> }) {
+  const searchParams = await props.searchParams;
   const { user, access } = await panelContext();
   const { services, clients, brand } = await editorData(user.id);
   const c = clients.find((x) => x.id === searchParams.cliente);

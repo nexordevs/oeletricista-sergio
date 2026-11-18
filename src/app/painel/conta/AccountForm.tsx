@@ -1,9 +1,9 @@
 "use client";
-import { useFormState } from "react-dom";
+import { useActionState } from "react";
 import { saveAccount } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
 export function AccountForm({ name, email }: { name: string; email: string }) {
-  const [s, a] = useFormState(saveAccount, undefined);
+  const [s, a] = useActionState(saveAccount, undefined);
   return (
     <form action={a} className="card max-w-xl space-y-4" noValidate>
       <FormMessage state={s} />

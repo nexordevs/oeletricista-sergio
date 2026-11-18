@@ -5,7 +5,8 @@ import { syncSubscription } from "@/lib/mercadopago";
 import { IconCheck, IconClock } from "@/components/icons";
 
 // O retorno do navegador NÃO ativa nada por si só: consultamos o Mercado Pago no servidor.
-export default async function Retorno({ searchParams }: { searchParams: { s?: string } }) {
+export default async function Retorno(props: { searchParams: Promise<{ s?: string }> }) {
+  const searchParams = await props.searchParams;
   const { user } = await panelContext();
   const sub = searchParams.s ? await prisma.subscription.findFirst({ where: { id: searchParams.s, userId: user.id }, include: { plan: true } }) : null;
   let status = sub?.status;
