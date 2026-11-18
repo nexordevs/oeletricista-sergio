@@ -9,4 +9,4 @@ export function middleware(req: NextRequest) {
   }
   return NextResponse.next();
 }
-export const config = { matcher: ["/painel/:path*", "/admin/:path*"] };
+export const config = { matcher: ["/painel/:path*"] }; // /admin não redireciona: responde 404 para quem não é administrador

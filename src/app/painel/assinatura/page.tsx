@@ -3,9 +3,8 @@ import { panelContext } from "@/lib/panel";
 import { planFeatures } from "@/components/site/PlanCards";
 import { brl, fmtDate } from "@/lib/money";
 import { SubscribeForm } from "./SubscribeForm";
-import { cancelSubscription } from "./actions";
+import { CancelButton } from "./CancelButton";
 import { PaymentChecker } from "./PaymentChecker";
-import { ConfirmButton } from "@/components/ConfirmButton";
 
 const ST: Record<string, [string, string]> = { PENDING: ["Aguardando pagamento", "bg-amber-100 text-amber-800"], ACTIVE: ["Ativa", "bg-green-100 text-green-800"], PAST_DUE: ["Pagamento pendente", "bg-red-100 text-red-700"], CANCELLED: ["Cancelada", "bg-gray-100 text-gray-700"], EXPIRED: ["Expirada", "bg-gray-100 text-gray-700"] };
 
@@ -32,17 +31,19 @@ export default async function Assinatura(props: { searchParams: Promise<{ plano?
             <span className={`badge ${ST[current.status][1]}`}>{ST[current.status][0]}</span>
             <span className="text-sm text-muted">{current.plan.name} · {current.cycle === "YEARLY" ? "anual" : "mensal"} · {brl(current.amount)}</span>
             {current.status === "CANCELLED" ? <span className="text-sm text-muted">Sem novas cobranças. Acesso até {fmtDate(current.currentPeriodEnd)}.</span> : (
-              <form action={cancelSubscription} className="ml-auto"><input type="hidden" name="id" value={current.id} /><ConfirmButton message="Cancelar a assinatura? Você continua com acesso até o fim do período já pago." className="btn-danger btn-sm">Cancelar assinatura</ConfirmButton></form>
+              <div className="ml-auto"><CancelButton id={current.id} until={fmtDate(current.currentPeriodEnd)} /></div>
             )}
           </div>
         )}
-        {pending && <div className="mt-4"><PaymentChecker subId={pending.id} planName={pending.plan.name} /></div>}
+        {pending && <div className="mt-4 space-y-2"><PaymentChecker subId={pending.id} planName={pending.plan.name} /><div className="flex items-center gap-2 text-sm text-muted">Desistiu desse plano? <CancelButton id={pending.id} pending /></div></div>}
       </section>
 
       <section>
         <p className="mb-3 text-lg font-bold text-navy">{access.active ? "Trocar de plano" : "Escolha seu plano"}</p>
         <SubscribeForm email={user.email} preselect={searchParams.plano} plans={plans.map((p) => ({ id: p.id, slug: p.slug, name: p.name, description: p.description, monthly: Number(p.priceMonthly), yearly: Number(p.priceYearly), features: planFeatures(p), highlight: p.highlight, current: access.plan?.id === p.id && access.source === "subscription" }))} />
       </section>
+
+      <p className="text-sm text-muted">Você pode cancelar quando quiser, aqui mesmo. Ao cancelar, o Mercado Pago não faz novas cobranças e o acesso continua até o fim do período já pago.</p>
 
       <section className="card p-0">
         <p className="px-5 py-4 text-lg font-bold text-navy">Histórico de pagamentos</p>

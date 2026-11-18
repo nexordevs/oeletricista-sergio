@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { mpConfigured } from "@/lib/env";
-import { createPreapproval, cancelPreapproval, syncSubscription } from "@/lib/mercadopago";
+import { createPreapproval, syncSubscription, cancelSubscriptionById } from "@/lib/mercadopago";
 import type { ActionState } from "@/lib/form";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -30,13 +30,14 @@ export async function subscribe(_: ActionState, fd: FormData): Promise<ActionSta
   redirect(url);
 }
 
-export async function cancelSubscription(fd: FormData) {
+export async function cancelSubscription(_: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireUser();
   const sub = await prisma.subscription.findFirst({ where: { id: String(fd.get("id")), userId: user.id } });
-  if (!sub) return;
-  if (sub.mpPreapprovalId) await cancelPreapproval(sub.mpPreapprovalId);
-  await prisma.subscription.update({ where: { id: sub.id }, data: { status: "CANCELLED", cancelledAt: new Date() } });
-  revalidatePath("/painel/assinatura");
+  if (!sub) return { error: "Assinatura não encontrada." };
+  try { await cancelSubscriptionById(sub.id); }
+  catch (e) { console.error(e); return { error: "Não foi possível cancelar no Mercado Pago agora. Tente de novo em alguns minutos — nada foi alterado." }; }
+  revalidatePath("/painel", "layout");
+  return { ok: true, message: sub.status === "PENDING" ? "Assinatura cancelada. Nenhuma cobrança será feita." : "Assinatura cancelada. Não haverá novas cobranças; seu acesso continua até o fim do período já pago." };
 }
 
 export async function checkPayment(fd: FormData) {

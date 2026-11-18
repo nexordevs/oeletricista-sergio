@@ -1,7 +1,7 @@
 import { ActionForm } from "@/components/ActionForm";
 import { Submit } from "@/components/ui";
 import { ConfirmButton } from "@/components/ConfirmButton";
-import { adminVerifySubscription, adminActivateSubscription } from "./actions";
+import { adminVerifySubscription, adminActivateSubscription, adminCancelSubscription } from "./actions";
 /** Botões do admin para uma assinatura: verificar no MP e ativar manualmente (contabilizando o valor). */
 export function SubscriptionAdmin({ id, amount, hasMp }: { id: string; amount: string; hasMp: boolean }) {
   return (
@@ -16,6 +16,10 @@ export function SubscriptionAdmin({ id, amount, hasMp }: { id: string; amount: s
           <ConfirmButton message="Confirmar que você recebeu este pagamento? A assinatura será ativada pelo período do plano." className="btn-primary btn-sm w-full">Confirmar pagamento e ativar</ConfirmButton>
         </ActionForm>
       </details>
+      <ActionForm action={adminCancelSubscription} className="space-y-2">
+        <input type="hidden" name="id" value={id} />
+        <ConfirmButton message="Cancelar esta assinatura no Mercado Pago? Não haverá novas cobranças." className="btn-danger btn-sm">Cancelar assinatura</ConfirmButton>
+      </ActionForm>
     </div>
   );
 }

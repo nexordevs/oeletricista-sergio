@@ -5,18 +5,22 @@ process.env.MP_ACCESS_TOKEN = "TEST-token";
 process.env.MP_WEBHOOK_SECRET = "segredo-teste";
 import { createHmac } from "crypto";
 import { prisma } from "../src/lib/db";
-import { verifyWebhookSignature, syncSubscription, activateManually } from "../src/lib/mercadopago";
+import { verifyWebhookSignature, syncSubscription, activateManually, cancelSubscriptionById } from "../src/lib/mercadopago";
 import { getAccess } from "../src/lib/access";
 
 let userId = "", subId = "";
 const realFetch = globalThis.fetch;
 let mp: Record<string, unknown> = {};
+const calls: string[] = [];
+let failPut = false;
 before(async () => {
   const plan = await prisma.plan.findUniqueOrThrow({ where: { slug: "profissional" } });
   const u = await prisma.user.create({ data: { email: `mp-${Date.now()}@teste.local`, name: "MP Teste", passwordHash: "x" } });
   userId = u.id;
   subId = (await prisma.subscription.create({ data: { userId, planId: plan.id, amount: plan.priceMonthly, status: "PENDING", mpPreapprovalId: `pre_${Date.now()}` } })).id;
-  globalThis.fetch = (async (url: string) => {
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    calls.push(`${init?.method || "GET"} ${url}`);
+    if (init?.method === "PUT" && failPut) return new Response("{}", { status: 500 });
     const key = Object.keys(mp).find((k) => String(url).includes(k));
     return new Response(JSON.stringify(key ? mp[key] : {}), { status: key ? 200 : 404 });
   }) as typeof fetch;
@@ -89,4 +93,17 @@ test("ativação manual pelo admin registra o valor e libera o acesso", async ()
   assert.equal(pay.status, "manual"); assert.equal(Number(pay.amount), 49.9);
   const a = await getAccess(await prisma.user.findUniqueOrThrow({ where: { id: userId } }));
   assert.equal(a.active, true);
+});
+
+test("cancelamento: se o Mercado Pago recusar, nada muda", async () => {
+  const plan = await prisma.plan.findUniqueOrThrow({ where: { slug: "inicial" } });
+  const c = await prisma.subscription.create({ data: { userId, planId: plan.id, amount: 19.9, status: "ACTIVE", currentPeriodEnd: new Date(Date.now() + 10 * 864e5), mpPreapprovalId: `prec_${Date.now()}` } });
+  failPut = true; mp = { [`/preapproval/${c.mpPreapprovalId}`]: { id: c.mpPreapprovalId, status: "authorized", external_reference: c.id } };
+  await assert.rejects(() => cancelSubscriptionById(c.id));
+  assert.equal((await prisma.subscription.findUniqueOrThrow({ where: { id: c.id } })).status, "ACTIVE");
+  failPut = false;
+  const r = await cancelSubscriptionById(c.id);
+  assert.equal(r.status, "CANCELLED");
+  assert.ok(calls.some((x) => x.startsWith("PUT") && x.includes(`/preapproval/${c.mpPreapprovalId}`)), "cancelou no Mercado Pago");
+  assert.ok(r.currentPeriodEnd! > new Date(), "acesso mantido até o fim do período pago");
 });

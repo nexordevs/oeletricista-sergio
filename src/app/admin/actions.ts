@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { processImage, ImageError } from "@/lib/images";
 import { SETTING_DEFAULTS } from "@/lib/settings";
-import { syncSubscription, syncOpenSubscriptions, activateManually } from "@/lib/mercadopago";
+import { syncSubscription, syncOpenSubscriptions, activateManually, cancelSubscriptionById } from "@/lib/mercadopago";
 import { parseForm, zText, zOpt, zMoney, type ActionState } from "@/lib/form";
 
 const audit = (actorId: string, action: string, target?: string, details?: string) => prisma.auditLog.create({ data: { actorId, action, target, details } });
@@ -208,4 +208,13 @@ export async function adminActivateSubscription(_: ActionState, fd: FormData): P
   await audit(a.id, "sub.activate_manual", p.data.id, String(p.data.amount));
   revalidatePath("/admin", "layout");
   return { ok: true, message: "Assinatura ativada e pagamento registrado." };
+}
+
+export async function adminCancelSubscription(_: ActionState, fd: FormData): Promise<ActionState> {
+  const a = await requireAdmin();
+  const id = String(fd.get("id"));
+  try { await cancelSubscriptionById(id); } catch (e) { console.error(e); return { error: "O Mercado Pago não confirmou o cancelamento. Nada foi alterado; tente novamente." }; }
+  await audit(a.id, "sub.cancel", id);
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: "Assinatura cancelada no Mercado Pago. Não haverá novas cobranças." };
 }

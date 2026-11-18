@@ -26,17 +26,17 @@ async function makeQuote(p, client, beforeClick) {
   ok(r401.status === 401, 'webhook sem assinatura é recusado (401)');
   const anon = await (await b.newContext()).newPage();
   await anon.goto(B + '/painel'); ok(anon.url().includes('/entrar'), 'visitante é mandado para login ao abrir /painel');
-  await anon.goto(B + '/admin'); ok(anon.url().includes('/entrar'), 'visitante não abre /admin');
+  const ra = await anon.goto(B + '/admin'); ok(ra.status() === 404 && !anon.url().includes('/entrar'), 'visitante em /admin vê "página não encontrada" (área escondida)');
 
   const A = await signup(b, 'Eletricista A', `a${t}@teste.local`);
   ok(await A.isVisible('text=Sua assinatura não está ativa'), 'sem assinatura: aviso no painel');
   await A.goto(B + '/painel/orcamentos/novo');
   ok(await A.locator('button:has-text("Finalizar orçamento")').isDisabled(), 'sem assinatura: botão de salvar desabilitado na tela');
-  await A.goto(B + '/admin'); ok(!A.url().includes('/admin') || await A.isVisible('text=Entrar'), 'eletricista comum não acessa /admin');
+  const rb = await A.goto(B + '/admin'); ok(rb.status() === 404, 'eletricista comum em /admin vê "página não encontrada"');
 
   // Admin libera acesso manual (plano Inicial)
   const adm = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
-  await adm.goto(B + '/entrar'); await adm.fill('#email', 'admin@teste.local'); await adm.fill('#password', 'TesteAdmin123'); await adm.click('button[type=submit]'); await adm.waitForURL(/admin/);
+  await adm.goto(B + '/entrar'); await adm.fill('#email', 'admin@teste.local'); await adm.fill('#password', 'TesteAdmin123'); await adm.click('button[type=submit]'); await adm.waitForURL(/admin/); ok(adm.url().endsWith('/admin'), 'administrador entra pelo login comum e cai direto no painel de admin');
   const aId = sql(`select id from "User" where email='a${t}@teste.local'`);
   await adm.goto(B + '/admin/usuarios/' + aId);
   const inicial = sql(`select id from "Plan" where slug='inicial'`);
@@ -90,6 +90,13 @@ async function makeQuote(p, client, beforeClick) {
   ok(sql(`select count(*) from "Payment" where "subscriptionId"='${subId}' and status='manual' and amount=34.90`) === '1', 'pagamento manual contabilizado (R$ 34,90)');
   await Bp.goto(B + '/painel/orcamentos/novo');
   ok(!(await Bp.locator('button:has-text("Finalizar orçamento")').isDisabled()), 'assinante liberado após ativação manual');
+
+  // Cancelamento seguro: se o Mercado Pago não confirmar (aqui ele não está configurado), nada muda e o assinante é avisado
+  await Bp.goto(B + '/painel/assinatura');
+  Bp.once('dialog', (d) => d.accept());
+  await Bp.click('button:has-text("Cancelar assinatura")');
+  await Bp.waitForSelector('text=Não foi possível cancelar no Mercado Pago', { timeout: 15000 }).catch(() => {});
+  ok(await Bp.isVisible('text=Não foi possível cancelar no Mercado Pago') && sql(`select status from "Subscription" where id='${subId}'`) === 'ACTIVE', 'cancelamento só vale se o Mercado Pago confirmar (assinante avisado do erro)');
 
   // Lead do site chega no admin
   await anon.goto(B + '/orcamento'); await anon.fill('#name', 'Maria Teste'); await anon.fill('#phone', '83999998888'); await anon.fill('#neighborhood', 'Manaíra');

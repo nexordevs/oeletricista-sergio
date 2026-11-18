@@ -112,6 +112,25 @@ export async function syncSubscription(subId: string) {
   return updated;
 }
 
+/**
+ * Cancela uma assinatura: primeiro no Mercado Pago (para não haver novas cobranças), depois no sistema.
+ * Se o Mercado Pago recusar, lança erro e NADA é marcado como cancelado.
+ * O acesso continua até o fim do período já pago.
+ */
+export async function cancelSubscriptionById(subId: string) {
+  const sub = await prisma.subscription.findUniqueOrThrow({ where: { id: subId } });
+  if (sub.status === "CANCELLED") return sub;
+  if (sub.mpPreapprovalId) {
+    try { await cancelPreapproval(sub.mpPreapprovalId); }
+    catch (e) {
+      // Se já estiver cancelada lá (ex.: pelo app do Mercado Pago), segue normalmente
+      const pre = await mp<Preapproval>(`/preapproval/${sub.mpPreapprovalId}`).catch(() => null);
+      if (pre?.status !== "cancelled") throw e;
+    }
+  }
+  return prisma.subscription.update({ where: { id: sub.id }, data: { status: "CANCELLED", cancelledAt: new Date(), ...(sub.status === "PENDING" ? { currentPeriodEnd: null } : {}) } });
+}
+
 /** Ativação manual pelo administrador (ex.: pagamento por Pix fora do Mercado Pago). Registra o valor no histórico. */
 export async function activateManually(subId: string, amount: number, note: string) {
   const sub = await prisma.subscription.findUniqueOrThrow({ where: { id: subId } });
