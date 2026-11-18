@@ -69,7 +69,19 @@ npm run db:seed
 npm run create-admin -- seu-email@exemplo.com "SuaSenhaForte123" "Sergio"
 ```
 
-O seed cria os 3 planos, a biblioteca de preços sugeridos e os 8 serviços do portfólio. Confira em `/admin/servicos` e desmarque o que você não faz.
+O seed cria:
+
+- os 3 planos;
+- a **biblioteca com 86 serviços** da tabela de preços médios 2026, com preço padrão (médio) e faixa mínimo–máximo;
+- os 8 serviços do portfólio, os bairros atendidos e os trabalhos na Loja Torras e no Hotel Bessa Beach.
+
+Confira em `/admin/servicos` e desmarque o que você não faz.
+
+Para atualizar a biblioteca de preços no futuro, edite `prisma/price-table.ts` e rode o comando abaixo. A tabela pessoal de cada eletricista não é alterada.
+
+```bash
+npm run import-prices
+```
 
 ### 4. Mercado Pago
 
@@ -86,6 +98,10 @@ O seed cria os 3 planos, a biblioteca de preços sugeridos e os 8 serviços do p
 Preencha `SMTP_*` e `MAIL_FROM`. Sem isso, em produção a recuperação de senha mostra erro. Em desenvolvimento, o link aparece no terminal.
 
 ### 6. Google
+
+- O link de avaliação do Google aparece no rodapé, na seção de depoimentos e após o envio do formulário. Ele pode ser trocado em `/admin/site`.
+- A foto de perfil da seção "Sobre mim" é enviada em `/admin/site`.
+
 
 1. Cadastre o site no Google Search Console e envie `https://SEU-DOMINIO/sitemap.xml`.
 2. Crie ou atualize o **Perfil da Empresa no Google** com o mesmo nome, telefone e região. É o fator que mais pesa para aparecer em "eletricista em João Pessoa".

@@ -161,6 +161,8 @@ model ServiceTemplate {
   description    String?
   unit           String        @default("un")
   suggestedPrice Decimal       @db.Decimal(10, 2)
+  minPrice       Decimal?      @db.Decimal(10, 2) // faixa de mercado (referência)
+  maxPrice       Decimal?      @db.Decimal(10, 2)
   category       String        @default("Geral")
   active         Boolean       @default(true)
   createdAt      DateTime      @default(now())
@@ -381,6 +383,14 @@ model Testimonial {
   rating       Int      @default(5)
   published    Boolean  @default(false)
   createdAt    DateTime @default(now())
+}
+
+// Imagens do site (ex.: foto de perfil na seção "Sobre mim")
+model SiteImage {
+  key       String   @id
+  data      Bytes
+  mime      String
+  updatedAt DateTime @updatedAt
 }
 
 model ServiceArea {

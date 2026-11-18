@@ -5,7 +5,7 @@ import { Submit } from "@/components/ui";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { brl } from "@/lib/money";
 
-type S = { id: string; name: string; unit: string; price: string; category: string; suggested: string | null };
+type S = { id: string; name: string; unit: string; price: string; category: string; suggested: string | null; min: string | null; max: string | null };
 export function ServiceRow({ s }: { s: S }) {
   const [st, a] = useFormState(saveService, undefined);
   const diff = s.suggested != null && Number(s.suggested) !== Number(s.price);
@@ -19,7 +19,7 @@ export function ServiceRow({ s }: { s: S }) {
         <div className="col-span-2 flex gap-2 sm:col-span-1"><Submit className="btn-navy btn-sm flex-1" pending="...">Salvar</Submit></div>
       </form>
       <div className="mt-1 flex items-center justify-between text-xs">
-        <span className="text-muted">{diff && <>Preço sugerido: <b>{brl(s.suggested)}</b></>} {st?.ok && <b className="text-green-700">✓ {st.message}</b>}{st?.error && <b className="text-red-700">{Object.values(st.fields || {})[0] || st.error}</b>}</span>
+        <span className="text-muted">{[s.min && s.max ? `Mercado: ${brl(s.min)} a ${brl(s.max)}` : "", diff ? `médio ${brl(s.suggested)}` : ""].filter(Boolean).join(" · ")} {st?.ok && <b className="text-green-700">✓ {st.message}</b>}{st?.error && <b className="text-red-700">{Object.values(st.fields || {})[0] || st.error}</b>}</span>
         <form action={deleteService}><input type="hidden" name="id" value={s.id} /><ConfirmButton message={`Remover "${s.name}" da sua tabela?`} className="font-bold text-red-700 hover:underline">Remover</ConfirmButton></form>
       </div>
     </div>

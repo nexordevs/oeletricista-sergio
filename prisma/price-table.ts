@@ -1,0 +1,107 @@
+// Tabela de preços médios de serviços elétricos 2026 (mão de obra, sem material).
+// Fonte: tabela de referência enviada pelo Sergio (atualizada em 09/02/2026).
+// Formato: [categoria, serviço, unidade, mínimo, máximo, médio]  — o MÉDIO é o preço padrão sugerido.
+// Correções feitas na importação: Interfone 2 chamadas (mín/máx estavam invertidos) e
+// Disjuntor trifásico (médio informado R$ 115 ficava abaixo do mínimo; usado R$ 125).
+export type PriceRow = [string, string, string, number, number, number];
+
+const IL = "Iluminação e interruptores", PU = "Pontos de utilização", QD = "Quadros e disjuntores", PC = "Passagem de cabos (até 20 m)",
+  SP = "Solução de problemas", PE = "Padrão de entrada", CV = "Carregador veicular", AR = "Automação residencial";
+
+export const CATEGORY_ORDER = [IL, PU, QD, PC, SP, PE, CV, AR];
+
+export const PRICE_TABLE: PriceRow[] = [
+  [IL, "Instalação de interruptor simples ou pulsador", "un", 55, 80, 68],
+  [IL, "Instalação de interruptor three-way ou four-way", "un", 70, 90, 80],
+  [IL, "Instalação de interruptor duplo ou bipolar", "un", 70, 90, 80],
+  [IL, "Instalação de interruptor e tomada (juntos)", "un", 70, 90, 80],
+  [IL, "Instalação de arandela, pendente ou spot comum", "un", 75, 110, 93],
+  [IL, "Instalação de lâmpada fluorescente ou LED tubular", "un", 80, 105, 93],
+  [IL, "Instalação de lustre simples ou luminária", "un", 105, 135, 120],
+  [IL, "Instalação de lustre grande ou luminária grande", "un", 160, 200, 180],
+  [IL, "Instalação de refletor de jardim", "un", 115, 150, 133],
+  [IL, "Instalação de refletor de poste comum", "un", 145, 200, 173],
+  [IL, "Instalação de refletor de poste com lâmpada a vapor", "un", 145, 200, 173],
+  [IL, "Instalação de reator de lâmpada a vapor", "un", 90, 120, 105.5],
+  [IL, "Instalação de fotocélula ou sensor de presença", "un", 90, 140, 115],
+  [IL, "Instalação de refletor LED + fotocélula ou sensor de presença", "un", 80, 130, 105],
+  [IL, "Instalação de luminária de emergência de sobrepor", "un", 90, 140, 115],
+  [IL, "Instalação de luminária de emergência de embutir (caixa 2x4)", "un", 70, 105, 88],
+  [IL, "Instalação de perfil de LED", "m", 180, 230, 205],
+  [IL, "Instalação de luminária tubular ou troca de reator por LED", "un", 90, 130, 110],
+
+  [PU, "Instalação de tomada simples", "un", 45, 70, 58],
+  [PU, "Instalação de tomada dupla", "un", 55, 80, 68],
+  [PU, "Instalação de tomada tripla", "un", 70, 90, 80],
+  [PU, "Instalação de tomada de piso ou de telefone", "un", 70, 90, 80],
+  [PU, "Instalação de tomada industrial (3P+T)", "un", 105, 150, 128],
+  [PU, "Instalação de tomada de sobrepor com canaleta", "un", 70, 90, 80],
+  [PU, "Instalação de chave boia superior e inferior (residência)", "un", 135, 175, 155],
+  [PU, "Instalação de ventilador de teto", "un", 160, 200, 180],
+  [PU, "Instalação de ventilador de parede", "un", 105, 125, 115],
+  [PU, "Instalação de chuveiro elétrico simples", "un", 105, 125, 115],
+  [PU, "Instalação de chuveiro luxo (eletrônico, pressurizado ou ducha)", "un", 160, 180, 170],
+  [PU, "Troca de resistência de chuveiro (elétrico ou eletrônico)", "un", 90, 115, 103],
+  [PU, "Instalação de torneira elétrica", "un", 105, 120, 113],
+  [PU, "Instalação de campainha (até 20 m)", "un", 80, 100, 90],
+  [PU, "Instalação de interfone 1 chamada", "un", 170, 230, 200],
+  [PU, "Instalação de interfone 2 chamadas", "un", 170, 220, 195],
+  [PU, "Instalação de interfone 4 chamadas", "un", 480, 550, 515],
+  [PU, "Instalação de vídeo porteiro", "un", 205, 230, 218],
+  [PU, "Instalação de 1 câmera CFTV Wi-Fi (sem ponto elétrico)", "un", 170, 210, 190],
+  [PU, "Instalação de 3 câmeras CFTV Wi-Fi (sem ponto elétrico)", "conj", 410, 450, 430],
+  [PU, "Instalação de portão eletrônico deslizante", "un", 300, 350, 325],
+  [PU, "Instalação de portão eletrônico pivotante ou basculante", "un", 560, 610, 585],
+  [PU, "Instalação de botoeira para fechadura eletrônica (portão social)", "un", 70, 100, 85],
+  [PU, "Instalação de fechadura eletrônica (portão social)", "un", 170, 200, 185],
+  [PU, "Instalação de exaustor de cozinha ou banheiro", "un", 260, 300, 280],
+  [PU, "Instalação de sistema de alarme residencial", "un", 900, 1200, 1050],
+  [PU, "Instalação de aquecedor elétrico (com passagem de cabos)", "un", 2330, 3200, 2765],
+  [PU, "Instalação de detector de fumaça (conforme altura e distância)", "un", 1290, 1800, 1545],
+  [PU, "Instalação de cerca elétrica", "m", 70, 110, 90],
+  [PU, "Instalação de nobreak", "un", 325, 360, 343],
+  [PU, "Instalação de aquecedor a gás", "un", 350, 450, 400],
+  [PU, "Instalação de termostato ou temporizador", "un", 105, 150, 128],
+
+  [QD, "Substituição de disjuntor monofásico", "un", 60, 80, 70],
+  [QD, "Substituição de disjuntor bifásico", "un", 80, 100, 90],
+  [QD, "Substituição de disjuntor trifásico", "un", 120, 130, 125],
+  [QD, "Instalação de IDR (interruptor diferencial residual)", "un", 150, 170, 160],
+  [QD, "Instalação de DPS (proteção contra surtos)", "un", 120, 140, 130],
+  [QD, "Instalação de barramento pente monopolar no QDC", "un", 70, 90, 80],
+  [QD, "Instalação de barramento pente bipolar no QDC", "un", 80, 100, 90],
+  [QD, "Instalação de barramento pente tripolar no QDC", "un", 90, 110, 100],
+  [QD, "Instalação de barramento de neutro e/ou terra", "un", 100, 120, 110],
+  [QD, "Instalação de haste de aterramento", "un", 250, 500, 350],
+  [QD, "Instalação de contator e/ou relé térmico", "un", 200, 250, 230],
+  [QD, "Montagem de QDC (6 circuitos + DR + DPS)", "un", 650, 800, 725],
+  [QD, "Montagem de QDC (12 circuitos + DR + DPS)", "un", 850, 1000, 925],
+  [QD, "Montagem de QDC (18 circuitos + DR + DPS)", "un", 1000, 1500, 1250],
+  [QD, "Montagem de QDC (24 circuitos + DR + DPS)", "un", 1500, 3000, 2300],
+
+  [PC, "Entrada monofásica (QM para QDC)", "un", 220, 250, 230],
+  [PC, "Entrada bifásica ou trifásica (QM para QDC)", "un", 250, 300, 280],
+  [PC, "Alimentação para motores", "un", 300, 350, 325],
+
+  [SP, "Curto-circuito monofásico", "un", 130, 600, 400],
+  [SP, "Curto-circuito bifásico", "un", 200, 1000, 600],
+  [SP, "Curto-circuito trifásico", "un", 300, 1200, 800],
+
+  [PE, "Instalação de padrão de entrada monofásico (127V ou 220V)", "un", 1200, 1800, 1500],
+  [PE, "Instalação de padrão de entrada bifásico (220V)", "un", 1400, 2000, 1700],
+  [PE, "Instalação de padrão de entrada trifásico (220V)", "un", 2000, 2500, 2250],
+
+  [CV, "Instalação de carregador veicular (residencial simples)", "un", 1200, 1800, 1500],
+
+  [AR, "Instalação de interruptor inteligente", "un", 150, 300, 225],
+  [AR, "Instalação de mini relé interruptor", "un", 200, 300, 250],
+  [AR, "Instalação de relé de impulso", "un", 150, 220, 175],
+  [AR, "Instalação de relé dimmer", "un", 200, 300, 250],
+  [AR, "Instalação e configuração de controle remoto universal", "un", 110, 150, 130],
+  [AR, "Instalação de tomada inteligente", "un", 150, 200, 175],
+  [AR, "Instalação de mini relé para persiana", "un", 200, 300, 250],
+  [AR, "Instalação e configuração de hub", "un", 200, 250, 225],
+  [AR, "Instalação e configuração de roteador", "un", 150, 300, 225],
+  [AR, "Instalação e configuração de fechadura inteligente", "un", 250, 400, 325],
+  [AR, "Instalação e configuração de assistente virtual", "un", 200, 300, 250],
+];

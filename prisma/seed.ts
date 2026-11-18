@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { importPriceTable } from "../src/lib/price-import";
 const prisma = new PrismaClient();
 
 const plans = [
@@ -7,24 +8,6 @@ const plans = [
   { slug: "premium", name: "Premium", description: "Gestão completa: financeiro, relatórios e indicadores.", priceMonthly: 49.9, priceYearly: 499, quoteLimit: null, featBrandFull: true, featClientHistory: true, featStatus: true, featWhatsapp: true, featFinance: true, featReports: true, sortOrder: 3 },
 ];
 
-// Preços SUGERIDOS de mão de obra (referência inicial, editáveis pelo admin e por cada eletricista)
-const templates: [string, string, string, number, string][] = [
-  ["Instalação de tomada", "Instalação de tomada em ponto existente", "ponto", 40, "Tomadas e interruptores"],
-  ["Instalação de interruptor", "Instalação de interruptor simples ou paralelo", "ponto", 40, "Tomadas e interruptores"],
-  ["Troca de tomada ou interruptor", "Substituição de peça existente", "un", 25, "Tomadas e interruptores"],
-  ["Instalação de ponto elétrico novo", "Novo ponto com passagem de fiação e caixa", "ponto", 90, "Instalações"],
-  ["Instalação de chuveiro", "Instalação de chuveiro elétrico", "un", 90, "Chuveiros"],
-  ["Troca de resistência de chuveiro", "Substituição da resistência", "un", 50, "Chuveiros"],
-  ["Troca de disjuntor", "Substituição de disjuntor no quadro", "un", 60, "Quadros e disjuntores"],
-  ["Montagem de quadro de distribuição", "Montagem e organização de quadro elétrico", "un", 450, "Quadros e disjuntores"],
-  ["Instalação de luminária", "Luminária, plafon ou spot", "un", 50, "Iluminação"],
-  ["Instalação de lustre", "Lustre ou pendente", "un", 90, "Iluminação"],
-  ["Instalação de refletor externo", "Refletor LED em área externa", "un", 70, "Iluminação"],
-  ["Instalação de ventilador de teto", "Instalação com controle ou interruptor", "un", 120, "Ventiladores e ar-condicionado"],
-  ["Circuito para ar-condicionado", "Circuito dedicado com disjuntor para split", "un", 250, "Ventiladores e ar-condicionado"],
-  ["Manutenção elétrica", "Diagnóstico e reparo (por hora)", "hora", 100, "Manutenção"],
-  ["Visita técnica", "Avaliação no local", "visita", 80, "Manutenção"],
-];
 
 const services = [
   ["instalacao-eletrica-residencial", "Instalações elétricas residenciais", "Instalação elétrica completa ou parcial para casas e apartamentos, seguindo as normas de segurança.",
@@ -47,11 +30,18 @@ const services = [
 
 async function main() {
   for (const p of plans) await prisma.plan.upsert({ where: { slug: p.slug }, update: {}, create: p });
-  if ((await prisma.serviceTemplate.count()) === 0)
-    await prisma.serviceTemplate.createMany({ data: templates.map(([name, description, unit, suggestedPrice, category]) => ({ name, description, unit, suggestedPrice, category })) });
+  if ((await prisma.serviceTemplate.count({ where: { minPrice: { not: null } } })) === 0) console.log(await importPriceTable(prisma));
   for (const [i, s] of services.entries())
     await prisma.portfolioService.upsert({ where: { slug: s[0] }, update: {}, create: { slug: s[0], title: s[1], summary: s[2], body: s[3], seoTitle: s[4], seoDescription: s[5], published: true, sortOrder: i } });
-  if ((await prisma.serviceArea.count()) === 0) await prisma.serviceArea.create({ data: { name: "João Pessoa", sortOrder: 0 } });
+  // Bairros e cidades atendidos (editáveis em /admin/site)
+  const areas = ["João Pessoa", "Bessa", "Bancários", "José Américo", "Mangabeira", "Manaíra", "Tambaú", "Cabo Branco", "Altiplano", "Jardim Oceania", "Aeroclube", "Valentina", "Geisel", "Cristo Redentor", "Torre", "Centro", "Jaguaribe", "Água Fria", "Cidade Universitária", "Castelo Branco", "Miramar", "Tambauzinho", "Expedicionários", "Cabedelo", "Bayeux", "Santa Rita"];
+  if ((await prisma.serviceArea.count()) <= 1) for (const [i, name] of areas.entries()) await prisma.serviceArea.upsert({ where: { name }, update: { sortOrder: i }, create: { name, sortOrder: i } });
+  // Trabalhos realizados informados pelo Sergio (sem logomarca dos clientes; fotos podem ser adicionadas no admin)
+  const works = [
+    { title: "Reparo de quadro de distribuição (QDC) em curto-circuito – Loja Torras", description: "Diagnóstico e correção de curto-circuito no quadro de distribuição da loja, com substituição dos componentes danificados e testes de funcionamento.", serviceSlug: "quadros-eletricos", neighborhood: null },
+    { title: "Serviços elétricos – Hotel Bessa Beach", description: "Manutenção e serviços elétricos no hotel.", serviceSlug: "manutencao-eletrica", neighborhood: "Bessa" },
+  ];
+  for (const w of works) if (!(await prisma.portfolioWork.findFirst({ where: { title: w.title } }))) await prisma.portfolioWork.create({ data: { ...w, published: true } });
   console.log("Seed concluído.");
 }
 main().finally(() => prisma.$disconnect());

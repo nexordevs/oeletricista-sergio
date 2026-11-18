@@ -16,11 +16,11 @@ export default async function Orcamento({ searchParams }: { searchParams: { serv
       <div>
         <h1 className="section-title">Pedir orçamento</h1><div className="section-bar" />
         <p className="mb-6 mt-4 text-muted">Preencha os dados abaixo e eu retorno o contato. Se preferir, chame direto no WhatsApp.</p>
-        <LeadForm services={services} wa={"55" + s.whatsapp.replace(/\D/g, "")} preset={preset} />
+        <LeadForm services={services} wa={"55" + s.whatsapp.replace(/\D/g, "")} preset={preset} reviewUrl={s.googleReviewUrl} />
       </div>
       <aside className="h-fit rounded-2xl bg-navy p-6 text-white">
         <p className="text-lg font-bold">Atendimento rápido</p>
-        <p className="mt-1 text-navy-soft">{s.hours}</p>
+        <p className="mt-1 text-navy-soft">{s.attendance}</p>
         <a href={waLink(s.whatsapp, "Olá! Gostaria de um orçamento.")} target="_blank" rel="noopener" className="btn-wa mt-5 w-full"><IconWhatsApp /> WhatsApp</a>
       </aside>
     </div>

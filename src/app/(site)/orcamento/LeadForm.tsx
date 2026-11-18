@@ -4,7 +4,7 @@ import { createLead } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
 import { IconWhatsApp, IconCheck } from "@/components/icons";
 
-export function LeadForm({ services, wa, preset }: { services: string[]; wa: string; preset?: string }) {
+export function LeadForm({ services, wa, preset, reviewUrl }: { services: string[]; wa: string; preset?: string; reviewUrl?: string }) {
   const [state, action] = useFormState(createLead, undefined);
   if (state?.ok && state.data) {
     const d = state.data;
@@ -15,6 +15,7 @@ export function LeadForm({ services, wa, preset }: { services: string[]; wa: str
         <p className="mt-4 text-xl font-bold text-navy">{state.message}</p>
         <p className="mt-1 text-muted">Quer agilizar? Continue a conversa pelo WhatsApp:</p>
         <a href={`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noopener" className="btn-wa mt-5"><IconWhatsApp /> Continuar no WhatsApp</a>
+        {reviewUrl && <p className="mt-6 text-sm text-muted">Já foi atendido por mim? <a href={reviewUrl} target="_blank" rel="noopener" className="font-bold text-navy underline">Deixe sua avaliação no Google</a> ⭐</p>}
       </div>
     );
   }

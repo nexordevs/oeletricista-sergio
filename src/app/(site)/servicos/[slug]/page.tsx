@@ -22,6 +22,7 @@ export default async function Servico({ params }: { params: { slug: string } }) 
   const s = await get(params.slug);
   if (!s) notFound();
   const st = await getSettings();
+  const areas = (await prisma.serviceArea.findMany({ orderBy: { sortOrder: "asc" }, select: { name: true } })).map((a) => a.name).filter((n) => n !== st.city);
   const works = await prisma.portfolioWork.findMany({ where: { published: true, serviceSlug: s.slug }, take: 6, orderBy: { createdAt: "desc" }, include: { photos: { select: { id: true, kind: true }, orderBy: { position: "asc" } } } });
   const wa = waLink(st.whatsapp, `Olá! Gostaria de um orçamento para: ${s.title}.`);
   return (
@@ -40,10 +41,13 @@ export default async function Servico({ params }: { params: { slug: string } }) 
       </section>
       <div className="h-1.5 bg-brand" />
       <div className="container-x grid gap-10 py-12 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-4 text-lg leading-relaxed text-ink/90">{s.body.split("\n").filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}</div>
+        <div className="space-y-4 text-lg leading-relaxed text-ink/90">
+          {s.body.split("\n").filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
+          {areas.length > 0 && <p className="text-base text-muted"><b className="text-navy">{s.title} em {st.city}:</b> atendo {areas.join(", ").replace(/, ([^,]*)$/, " e $1")}.</p>}
+        </div>
         <aside className="card h-fit border-brand/40 bg-light">
           <p className="text-lg font-bold text-navy">Peça seu orçamento</p>
-          <p className="mt-1 text-sm text-muted">Atendo em {st.city} e região. {st.hours}.</p>
+          <p className="mt-1 text-sm text-muted">Atendo em {st.city} e região. {st.attendance}.</p>
           <a href={wa} target="_blank" rel="noopener" className="btn-wa mt-4 w-full"><IconWhatsApp /> WhatsApp</a>
           <Link href={`/orcamento?servico=${encodeURIComponent(s.title)}`} className="btn-primary mt-2 w-full">Formulário</Link>
         </aside>

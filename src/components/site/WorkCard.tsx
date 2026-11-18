@@ -4,10 +4,14 @@ export function WorkCard({ w }: { w: { id: string; title: string; description: s
   const after = w.photos.find((p) => p.kind === "DEPOIS") || w.photos.find((p) => p.kind !== "ANTES");
   return (
     <article className="overflow-hidden rounded-2xl border border-line bg-white">
-      <div className={`grid ${before && after ? "grid-cols-2" : "grid-cols-1"} gap-0.5 bg-line`}>
-        {before && <Fig id={before.id} label="Antes" alt={`${w.title} – antes`} />}
-        {after && <Fig id={after.id} label={before ? "Depois" : ""} alt={w.title} />}
-      </div>
+      {before || after ? (
+        <div className={`grid ${before && after ? "grid-cols-2" : "grid-cols-1"} gap-0.5 bg-line`}>
+          {before && <Fig id={before.id} label="Antes" alt={`${w.title} – antes`} />}
+          {after && <Fig id={after.id} label={before ? "Depois" : ""} alt={w.title} />}
+        </div>
+      ) : (
+        <div className="flex h-2 bg-brand" />
+      )}
       <div className="p-4">
         <h3 className="font-bold text-navy">{w.title}</h3>
         {w.neighborhood && <p className="text-xs font-bold uppercase tracking-wide text-muted">{w.neighborhood}</p>}

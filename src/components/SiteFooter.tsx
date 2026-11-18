@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Emblem } from "./Logo";
 import { fmtPhone } from "@/lib/money";
+import { ReviewButton } from "./site/ReviewButton";
 
 export function SiteFooter({ s, waHref }: { s: Record<string, string>; waHref: string }) {
   return (
@@ -11,7 +12,7 @@ export function SiteFooter({ s, waHref }: { s: Record<string, string>; waHref: s
             <Emblem size={44} />
             <div><p className="text-lg font-bold text-white">{s.businessName}</p><p className="text-sm">{s.tagline}</p></div>
           </div>
-          <p className="mt-4 text-sm">Eletricista em {s.city} – {s.state}. {s.hours}.</p>
+          <p className="mt-4 text-sm">Eletricista em {s.city} – {s.state}. {s.attendance}.</p>
         </div>
         <div>
           <p className="mb-3 font-bold uppercase tracking-wide text-white">Navegação</p>
@@ -28,6 +29,7 @@ export function SiteFooter({ s, waHref }: { s: Record<string, string>; waHref: s
           <a href={waHref} target="_blank" rel="noopener" className="text-lg font-bold text-white hover:text-brand">WhatsApp: {fmtPhone(s.whatsapp)}</a>
           {s.email && <p className="mt-1 text-sm">{s.email}</p>}
           {s.instagram && <p className="mt-1 text-sm">Instagram: @{s.instagram.replace(/^@/, "")}</p>}
+          <ReviewButton url={s.googleReviewUrl} className="btn mt-4 border-2 border-white/20 py-2.5 text-white hover:border-brand" label="Avalie meu serviço no Google" />
         </div>
       </div>
       <div className="border-t border-white/10 py-4 text-center text-xs">© {new Date().getFullYear()} {s.businessName}</div>

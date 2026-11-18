@@ -14,7 +14,7 @@ async function makeQuote(p, client, beforeClick) {
   await p.goto(B + '/painel/orcamentos/novo'); await p.waitForLoadState('networkidle');
   const sel = p.locator('select[aria-label="Escolher cliente"]'); if (await sel.count()) await sel.selectOption('__new');
   await p.fill('input[aria-label="Nome do cliente"]', client);
-  await p.click('text=Serviço da tabela'); await p.click('button:has-text("Troca de disjuntor")');
+  await p.click('text=Serviço da tabela'); await p.click('button:has-text("Substituição de disjuntor monofásico")');
   if (beforeClick) beforeClick();
   await p.click('button:has-text("Finalizar orçamento")');
   await Promise.race([p.waitForURL(/salvo=1/, { timeout: 15000 }), p.waitForSelector('[role=alert].rounded-xl', { timeout: 15000 })]).catch(() => {});
@@ -64,10 +64,10 @@ async function makeQuote(p, client, beforeClick) {
   const cA = sql(`select id from "Client" where "userId"='${aId}' limit 1`);
   const r3 = await Bp.goto(B + '/painel/clientes/' + cA); ok(r3.status() === 404, 'B não abre cliente de A (404)');
   await Bp.goto(B + '/painel/servicos');
-  const bSvc = sql(`select id from "UserService" where "userId"=(select id from "User" where email='b${t}@teste.local') and name='Troca de disjuntor'`);
+  const bSvc = sql(`select id from "UserService" where "userId"=(select id from "User" where email='b${t}@teste.local') and name='Substituição de disjuntor monofásico'`);
   await Bp.fill(`#p${bSvc}`, '999,00'); await Bp.locator(`#p${bSvc}`).locator('xpath=ancestor::form').locator('button[type=submit]').click(); await Bp.waitForTimeout(1500);
-  const aPrice = sql(`select price from "UserService" where "userId"='${aId}' and name='Troca de disjuntor'`);
-  ok(aPrice === '60.00', `alterar preço em B não muda a tabela de A (A=${aPrice})`);
+  const aPrice = sql(`select price from "UserService" where "userId"='${aId}' and name='Substituição de disjuntor monofásico'`);
+  ok(aPrice === '70.00', `alterar preço em B não muda a tabela de A (A=${aPrice})`);
 
   // Rascunho não é público
   const draftTok = sql(`insert into "Quote"(id,"userId",number,"clientName","shareToken","updatedAt") values ('dq${t}','${aId}',99,'X','tok${t}abcdefghijklmnop',now()) returning "shareToken"`);

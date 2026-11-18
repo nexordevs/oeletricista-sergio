@@ -62,7 +62,8 @@ export async function savePlan(_: ActionState, fd: FormData): Promise<ActionStat
 }
 
 // ---------- Biblioteca de serviços ----------
-const tplSchema = z.object({ id: z.string().optional(), name: zText(2, 120), description: zOpt(300), unit: zText(1, 20), suggestedPrice: zMoney, category: zText(2, 60) });
+const zOptMoney = z.string().optional().transform((v) => (v ? Number(v.replace(/\s|R\$/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) : null)).refine((n) => n == null || (Number.isFinite(n) && n >= 0), "Valor inválido");
+const tplSchema = z.object({ id: z.string().optional(), name: zText(2, 120), description: zOpt(300), unit: zText(1, 20), suggestedPrice: zMoney, minPrice: zOptMoney, maxPrice: zOptMoney, category: zText(2, 60) });
 export async function saveTemplate(_: ActionState, fd: FormData): Promise<ActionState> {
   const a = await requireAdmin();
   const p = parseForm(tplSchema, fd);
@@ -164,3 +165,22 @@ export async function addArea(_: ActionState, fd: FormData): Promise<ActionState
   return { ok: true, message: "Adicionado." };
 }
 export async function deleteArea(fd: FormData) { await requireAdmin(); await prisma.serviceArea.delete({ where: { id: String(fd.get("id")) } }); revalidatePath("/", "layout"); }
+
+// ---------- Foto de perfil (seção "Sobre mim") ----------
+export async function saveProfilePhoto(_: ActionState, fd: FormData): Promise<ActionState> {
+  const a = await requireAdmin();
+  const f = fd.get("photo");
+  if (!(f instanceof File) || f.size === 0) return { error: "Escolha uma foto." };
+  try {
+    const img = await processImage(f, { maxW: 900, maxH: 1125, format: "webp" });
+    await prisma.siteImage.upsert({ where: { key: "profile" }, update: { data: img.data, mime: img.mime }, create: { key: "profile", data: img.data, mime: img.mime } });
+  } catch (e) { if (e instanceof ImageError) return { error: e.message }; throw e; }
+  await audit(a.id, "site.photo");
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Foto atualizada no site." };
+}
+export async function removeProfilePhoto() {
+  await requireAdmin();
+  await prisma.siteImage.deleteMany({ where: { key: "profile" } });
+  revalidatePath("/", "layout");
+}

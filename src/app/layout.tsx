@@ -15,10 +15,13 @@ const brandFont = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL(env.appUrl),
-  title: { default: "Sergio Eletricista | Eletricista em João Pessoa – PB", template: "%s | Sergio Eletricista" },
-  description: "Eletricista em João Pessoa – PB: instalações elétricas residenciais, chuveiros, tomadas, disjuntores, quadros e manutenção. Orçamento pelo WhatsApp.",
-  icons: { icon: "/icon.svg" },
-  openGraph: { type: "website", locale: "pt_BR", siteName: "Sergio Eletricista" },
+  title: { default: "Eletricista em João Pessoa – PB | Sergio Eletricista", template: "%s | Sergio Eletricista" },
+  description: "Eletricista em João Pessoa: Bessa, Bancários, José Américo, Mangabeira e região. Instalações, quadros (QDC), disjuntores, curto-circuito, chuveiros e tomadas. Orçamento pelo WhatsApp.",
+  alternates: { canonical: "/" },
+  icons: { icon: "/icon.svg", apple: "/og.png" },
+  openGraph: { type: "website", locale: "pt_BR", siteName: "Sergio Eletricista", images: [{ url: "/og.png", width: 1200, height: 630, alt: "Sergio Eletricista – Eletricista em João Pessoa" }] },
+  twitter: { card: "summary_large_image", images: ["/og.png"] },
+  formatDetection: { telephone: true },
 };
 export const viewport: Viewport = { themeColor: "#0F2742", width: "device-width", initialScale: 1 };
 
