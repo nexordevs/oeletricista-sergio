@@ -20,7 +20,6 @@ export function SiteFooter({ s, waHref }: { s: Record<string, string>; waHref: s
             <li><Link href="/servicos" className="hover:text-white">Serviços</Link></li>
             <li><Link href="/portfolio" className="hover:text-white">Trabalhos realizados</Link></li>
             <li><Link href="/orcamento" className="hover:text-white">Pedir orçamento</Link></li>
-            <li><Link href="/sistema" className="hover:text-white">Sistema de orçamentos para eletricistas</Link></li>
             <li><Link href="/privacidade" className="hover:text-white">Privacidade</Link> · <Link href="/termos" className="hover:text-white">Termos</Link></li>
           </ul>
         </div>
@@ -32,7 +31,12 @@ export function SiteFooter({ s, waHref }: { s: Record<string, string>; waHref: s
           <ReviewButton url={s.googleReviewUrl} className="btn mt-4 border-2 border-white/20 py-2.5 text-white hover:border-brand" label="Avalie meu serviço no Google" />
         </div>
       </div>
-      <div className="border-t border-white/10 py-4 text-center text-xs">© {new Date().getFullYear()} {s.businessName}</div>
+      <div className="border-t border-white/10">
+        <div className="container-x flex flex-col items-center justify-between gap-2 py-4 text-xs sm:flex-row">
+          <span>© {new Date().getFullYear()} {s.businessName}</span>
+          <Link href="/sistema" className="hover:text-white">É eletricista? Conheça nosso sistema de orçamentos →</Link>
+        </div>
+      </div>
     </footer>
   );
 }
