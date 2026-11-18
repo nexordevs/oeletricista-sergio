@@ -40,6 +40,9 @@ async function main() {
   const works = [
     { title: "Reparo de quadro de distribuição (QDC) em curto-circuito – Loja Torras", description: "Diagnóstico e correção de curto-circuito no quadro de distribuição da loja, com substituição dos componentes danificados e testes de funcionamento.", serviceSlug: "quadros-eletricos", neighborhood: null },
     { title: "Serviços elétricos – Hotel Bessa Beach", description: "Manutenção e serviços elétricos no hotel.", serviceSlug: "manutencao-eletrica", neighborhood: "Bessa" },
+    { title: "Montagem e organização de QDC em residências", description: "Montagem e organização de quadros de distribuição residenciais, com disjuntores dimensionados para cada circuito.", serviceSlug: "quadros-eletricos", neighborhood: null },
+    { title: "Instalação de novos pontos de tomada em residências", description: "Criação de novos pontos de tomada com passagem de fiação e acabamento.", serviceSlug: "tomadas-e-interruptores", neighborhood: null },
+    { title: "Serviços elétricos em ambiente industrial – Klabin", description: "Experiência em serviços elétricos em ambiente industrial.", serviceSlug: "manutencao-eletrica", neighborhood: null },
   ];
   for (const w of works) if (!(await prisma.portfolioWork.findFirst({ where: { title: w.title } }))) await prisma.portfolioWork.create({ data: { ...w, published: true } });
   console.log("Seed concluído.");
