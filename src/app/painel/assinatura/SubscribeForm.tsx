@@ -1,5 +1,6 @@
 "use client";
-import { useState, useActionState } from "react";
+import { useStickyAction, StickyForm } from "@/components/form-kit";
+import { useState } from "react";
 import { subscribe } from "./actions";
 import { Submit, FormMessage } from "@/components/ui";
 import { IconCheck } from "@/components/icons";
@@ -8,11 +9,11 @@ type P = { id: string; slug: string; name: string; description: string | null; m
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function SubscribeForm({ plans, preselect, email }: { plans: P[]; preselect?: string; email: string }) {
-  const [s, a] = useActionState(subscribe, undefined);
+  const [s, a, aPending] = useStickyAction(subscribe);
   const [cycle, setCycle] = useState<"MONTHLY" | "YEARLY">("MONTHLY");
   const [plan, setPlan] = useState(plans.find((p) => p.slug === preselect)?.id || plans.find((p) => p.highlight)?.id || plans[0]?.id);
   return (
-    <form action={a} className="space-y-5">
+    <StickyForm pending={aPending} onSubmit={a} className="space-y-5">
       <FormMessage state={s} />
       <div className="inline-flex rounded-xl bg-white p-1 shadow-sm" role="radiogroup" aria-label="Período">
         {(["MONTHLY", "YEARLY"] as const).map((c) => (
@@ -38,6 +39,6 @@ export function SubscribeForm({ plans, preselect, email }: { plans: P[]; presele
       </div>
       <Submit className="btn-primary w-full sm:w-auto" pending="Abrindo Mercado Pago...">Continuar para pagamento</Submit>
       <p className="text-xs text-muted">Pagamento recorrente processado pelo Mercado Pago. O acesso é liberado automaticamente quando o pagamento for aprovado. Cancele quando quiser.</p>
-    </form>
+    </StickyForm>
   );
 }

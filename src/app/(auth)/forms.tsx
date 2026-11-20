@@ -1,27 +1,27 @@
 "use client";
-import { useActionState } from "react";
+import { useStickyAction, StickyForm } from "@/components/form-kit";
 import Link from "next/link";
 import { login, signup, requestReset, resetPassword } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
 
 export function LoginForm({ next }: { next?: string }) {
-  const [s, a] = useActionState(login, undefined);
+  const [s, a, aPending] = useStickyAction(login);
   return (
-    <form action={a} className="space-y-4" noValidate>
+    <StickyForm pending={aPending} onSubmit={a} className="space-y-4" noValidate>
       <FormMessage state={s} />
       <input type="hidden" name="next" value={next || ""} />
       <Field label="E-mail" name="email" state={s}><input id="email" name="email" type="email" autoComplete="email" className="input" required /></Field>
       <Field label="Senha" name="password" state={s}><input id="password" name="password" type="password" autoComplete="current-password" className="input" required /></Field>
       <Submit className="btn-primary w-full" pending="Entrando...">Entrar</Submit>
       <div className="flex justify-between text-sm"><Link href="/recuperar-senha" className="font-bold text-navy hover:underline">Esqueci a senha</Link><Link href="/cadastro" className="font-bold text-navy hover:underline">Criar conta</Link></div>
-    </form>
+    </StickyForm>
   );
 }
 
 export function SignupForm({ plano }: { plano?: string }) {
-  const [s, a] = useActionState(signup, undefined);
+  const [s, a, aPending] = useStickyAction(signup);
   return (
-    <form action={a} className="space-y-4" noValidate>
+    <StickyForm pending={aPending} onSubmit={a} className="space-y-4" noValidate>
       <FormMessage state={s} />
       <input type="hidden" name="plano" value={plano || ""} />
       <Field label="Seu nome" name="name" state={s}><input id="name" name="name" autoComplete="name" className="input" required /></Field>
@@ -33,34 +33,34 @@ export function SignupForm({ plano }: { plano?: string }) {
       </div>
       <Submit className="btn-primary w-full" pending="Criando conta...">Criar minha conta</Submit>
       <p className="text-center text-sm">Já tem conta? <Link href="/entrar" className="font-bold text-navy hover:underline">Entrar</Link></p>
-    </form>
+    </StickyForm>
   );
 }
 
 export function ForgotForm() {
-  const [s, a] = useActionState(requestReset, undefined);
+  const [s, a, aPending] = useStickyAction(requestReset);
   return (
-    <form action={a} className="space-y-4" noValidate>
+    <StickyForm pending={aPending} onSubmit={a} className="space-y-4" noValidate>
       <FormMessage state={s} />
       {!s?.ok && <>
         <Field label="E-mail da sua conta" name="email" state={s}><input id="email" name="email" type="email" autoComplete="email" className="input" required /></Field>
         <Submit className="btn-primary w-full" pending="Enviando...">Enviar link</Submit>
       </>}
       <p className="text-center text-sm"><Link href="/entrar" className="font-bold text-navy hover:underline">Voltar para o login</Link></p>
-    </form>
+    </StickyForm>
   );
 }
 
 export function ResetForm({ token }: { token: string }) {
-  const [s, a] = useActionState(resetPassword, undefined);
+  const [s, a, aPending] = useStickyAction(resetPassword);
   if (s?.ok) return <div className="space-y-4"><FormMessage state={s} /><Link href="/entrar" className="btn-primary w-full">Entrar</Link></div>;
   return (
-    <form action={a} className="space-y-4" noValidate>
+    <StickyForm pending={aPending} onSubmit={a} className="space-y-4" noValidate>
       <FormMessage state={s} />
       <input type="hidden" name="token" value={token} />
       <Field label="Nova senha" name="password" state={s} hint="Mínimo de 8 caracteres, com letras e números."><input id="password" name="password" type="password" autoComplete="new-password" className="input" required /></Field>
       <Field label="Repita a nova senha" name="confirm" state={s}><input id="confirm" name="confirm" type="password" autoComplete="new-password" className="input" required /></Field>
       <Submit className="btn-primary w-full">Salvar nova senha</Submit>
-    </form>
+    </StickyForm>
   );
 }

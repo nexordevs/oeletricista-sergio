@@ -28,6 +28,12 @@ async function makeQuote(p, client, beforeClick) {
   await anon.goto(B + '/painel'); ok(anon.url().includes('/entrar'), 'visitante é mandado para login ao abrir /painel');
   await anon.goto(B + '/admin'); ok(anon.url() === B + '/', 'visitante em /admin vai para a página inicial');
 
+  // Formulário com erro mantém o que foi digitado (regressão do React 19)
+  const fk = await (await b.newContext()).newPage();
+  await fk.goto(B + '/cadastro'); await fk.fill('#name', 'Fulano Teste'); await fk.fill('#email', `fk${t}@teste.local`); await fk.fill('#password', 'curta'); await fk.check('input[name=terms]');
+  await fk.click('button[type=submit]'); await fk.waitForSelector('[role=alert].rounded-xl');
+  ok(await fk.inputValue('#name') === 'Fulano Teste' && await fk.inputValue('#email') === `fk${t}@teste.local`, 'formulário com erro mantém os campos digitados');
+
   const A = await signup(b, 'Eletricista A', `a${t}@teste.local`);
   ok(await A.isVisible('text=Sua assinatura não está ativa'), 'sem assinatura: aviso no painel');
   await A.goto(B + '/painel/orcamentos/novo');

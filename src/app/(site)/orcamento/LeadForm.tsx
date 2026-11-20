@@ -1,11 +1,11 @@
 "use client";
-import { useActionState } from "react";
+import { useStickyAction, StickyForm } from "@/components/form-kit";
 import { createLead } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
 import { IconWhatsApp, IconCheck } from "@/components/icons";
 
 export function LeadForm({ services, wa, preset, reviewUrl }: { services: string[]; wa: string; preset?: string; reviewUrl?: string }) {
-  const [state, action] = useActionState(createLead, undefined);
+  const [state, action, actionPending] = useStickyAction(createLead);
   if (state?.ok && state.data) {
     const d = state.data;
     const msg = `Olá! Acabei de pedir um orçamento pelo site.\nNome: ${d.name}\nBairro: ${d.neighborhood}\nServiço: ${d.service}${d.description ? `\nDetalhes: ${d.description}` : ""}`;
@@ -20,7 +20,7 @@ export function LeadForm({ services, wa, preset, reviewUrl }: { services: string
     );
   }
   return (
-    <form action={action} className="card space-y-4" noValidate>
+    <StickyForm pending={actionPending} onSubmit={action} className="card space-y-4" noValidate>
       <FormMessage state={state} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Seu nome" name="name" state={state}><input id="name" name="name" className="input" autoComplete="name" required /></Field>
@@ -40,6 +40,6 @@ export function LeadForm({ services, wa, preset, reviewUrl }: { services: string
       <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
       <Submit className="btn-primary w-full sm:w-auto" pending="Enviando...">Enviar solicitação</Submit>
       <p className="text-xs text-muted">Seus dados são usados apenas para retornar o contato sobre este orçamento.</p>
-    </form>
+    </StickyForm>
   );
 }

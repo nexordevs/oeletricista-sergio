@@ -6,6 +6,8 @@ import { requireAdmin } from "@/lib/auth";
 import { processImage, ImageError } from "@/lib/images";
 import { SETTING_DEFAULTS } from "@/lib/settings";
 import { syncSubscription, syncOpenSubscriptions, activateManually, cancelSubscriptionById } from "@/lib/mercadopago";
+import { embedUrl } from "@/lib/aulas";
+import { redirect } from "next/navigation";
 import { parseForm, zText, zOpt, zMoney, type ActionState } from "@/lib/form";
 
 const audit = (actorId: string, action: string, target?: string, details?: string) => prisma.auditLog.create({ data: { actorId, action, target, details } });
@@ -217,4 +219,50 @@ export async function adminCancelSubscription(_: ActionState, fd: FormData): Pro
   await audit(a.id, "sub.cancel", id);
   revalidatePath("/admin", "layout");
   return { ok: true, message: "Assinatura cancelada no Mercado Pago. Não haverá novas cobranças." };
+}
+
+// ---------- Videoaulas ----------
+const slugify = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
+export async function saveCourse(_: ActionState, fd: FormData): Promise<ActionState> {
+  const a = await requireAdmin();
+  const p = parseForm(z.object({ id: z.string().optional(), title: zText(3, 120, "Informe o título do curso"), slug: z.string().max(80).optional(), description: zOpt(2000), access: z.enum(["FREE", "SUBSCRIBERS", "PAID"]), price: z.string().optional(), sortOrder: z.coerce.number().int().min(0).max(999) }), fd);
+  if (!p.ok) return p.error;
+  const { id, slug: rawSlug, price, ...d } = p.data;
+  const slug = slugify(rawSlug || d.title);
+  if (!slug) return { error: "Confira os campos.", fields: { slug: "Endereço inválido" } };
+  if (await prisma.course.findFirst({ where: { slug, NOT: id ? { id } : undefined } })) return { error: "Confira os campos.", fields: { slug: "Já existe um curso com este endereço" } };
+  const priceN = price ? Number(price.replace(/\./g, "").replace(",", ".")) : null;
+  if (price && (!Number.isFinite(priceN) || priceN! < 0)) return { error: "Confira os campos.", fields: { price: "Valor inválido" } };
+  const data = { ...d, slug, price: priceN, published: bool(fd, "published") };
+  const c = id ? await prisma.course.update({ where: { id }, data }) : await prisma.course.create({ data });
+  await audit(a.id, id ? "course.update" : "course.create", c.slug);
+  revalidatePath("/admin/aulas"); revalidatePath("/painel/aulas", "layout");
+  return { ok: true, message: id ? "Curso salvo." : "Curso criado! Agora adicione as aulas.", data: { id: c.id } };
+}
+export async function deleteCourse(fd: FormData) {
+  const a = await requireAdmin();
+  const id = String(fd.get("id"));
+  await prisma.course.delete({ where: { id } });
+  await audit(a.id, "course.delete", id);
+  revalidatePath("/admin/aulas"); revalidatePath("/painel/aulas", "layout");
+  redirect("/admin/aulas");
+}
+export async function saveLesson(_: ActionState, fd: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const p = parseForm(z.object({ id: z.string().optional(), courseId: z.string().min(1), title: zText(3, 150, "Informe o título da aula"), description: zOpt(3000), videoUrl: zText(10, 500, "Cole o link do vídeo"), durationMin: z.string().optional(), materialUrl: zOpt(500), sortOrder: z.coerce.number().int().min(0).max(999) }), fd);
+  if (!p.ok) return p.error;
+  const { id, durationMin, ...d } = p.data;
+  if (!embedUrl(d.videoUrl)) return { error: "Confira os campos.", fields: { videoUrl: "Use um link do YouTube, Vimeo ou Panda Video" } };
+  if (d.materialUrl && !/^https:\/\//.test(d.materialUrl)) return { error: "Confira os campos.", fields: { materialUrl: "O link do material deve começar com https://" } };
+  const dur = durationMin ? Number(durationMin) : null;
+  if (dur != null && (!Number.isInteger(dur) || dur < 0 || dur > 600)) return { error: "Confira os campos.", fields: { durationMin: "Minutos inválidos" } };
+  const data = { ...d, durationMin: dur };
+  if (id) await prisma.lesson.update({ where: { id }, data }); else await prisma.lesson.create({ data });
+  revalidatePath(`/admin/aulas/${d.courseId}`); revalidatePath("/painel/aulas", "layout");
+  return { ok: true, message: id ? "Aula salva." : "Aula adicionada!" };
+}
+export async function deleteLesson(fd: FormData) {
+  await requireAdmin();
+  const l = await prisma.lesson.delete({ where: { id: String(fd.get("id")) } });
+  revalidatePath(`/admin/aulas/${l.courseId}`); revalidatePath("/painel/aulas", "layout");
 }

@@ -411,3 +411,49 @@ model LeadRequest {
   ip           String?
   createdAt    DateTime   @default(now())
 }
+
+// ---------- Videoaulas ----------
+enum CourseAccess {
+  FREE // qualquer usuário cadastrado
+  SUBSCRIBERS // assinantes com plano ativo
+  PAID // venda avulsa (em breve)
+}
+
+model Course {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  title       String
+  description String?
+  access      CourseAccess @default(SUBSCRIBERS)
+  price       Decimal?     @db.Decimal(10, 2)
+  published   Boolean      @default(false)
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  lessons     Lesson[]
+}
+
+model Lesson {
+  id          String           @id @default(cuid())
+  courseId    String
+  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  videoUrl    String
+  durationMin Int?
+  materialUrl String?
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  progress    LessonProgress[]
+
+  @@index([courseId, sortOrder])
+}
+
+model LessonProgress {
+  userId      String
+  lessonId    String
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completedAt DateTime @default(now())
+
+  @@id([userId, lessonId])
+}

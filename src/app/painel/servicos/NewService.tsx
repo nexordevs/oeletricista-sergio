@@ -1,13 +1,14 @@
 "use client";
-import { useEffect, useRef, useActionState } from "react";
+import { useStickyAction, StickyForm } from "@/components/form-kit";
+import { useEffect, useRef } from "react";
 import { saveService } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
 export function NewService({ categories }: { categories: string[] }) {
-  const [s, a] = useActionState(saveService, undefined);
+  const [s, a, aPending] = useStickyAction(saveService);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => { if (s?.ok) ref.current?.reset(); }, [s]);
   return (
-    <form ref={ref} action={a} className="space-y-3" noValidate>
+    <StickyForm ref={ref} pending={aPending} onSubmit={a} className="space-y-3" noValidate>
       <FormMessage state={s} />
       <Field label="Nome do serviço" name="name" state={s}><input id="name" name="name" className="input" placeholder="Ex.: Instalação de interfone" /></Field>
       <div className="grid grid-cols-2 gap-3">
@@ -19,6 +20,6 @@ export function NewService({ categories }: { categories: string[] }) {
         <datalist id="cats">{categories.map((c) => <option key={c} value={c} />)}</datalist>
       </Field>
       <Submit className="btn-primary w-full">Adicionar serviço</Submit>
-    </form>
+    </StickyForm>
   );
 }

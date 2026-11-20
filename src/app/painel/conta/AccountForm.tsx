@@ -1,11 +1,11 @@
 "use client";
-import { useActionState } from "react";
+import { useStickyAction, StickyForm } from "@/components/form-kit";
 import { saveAccount } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
 export function AccountForm({ name, email }: { name: string; email: string }) {
-  const [s, a] = useActionState(saveAccount, undefined);
+  const [s, a, aPending] = useStickyAction(saveAccount);
   return (
-    <form action={a} className="card max-w-xl space-y-4" noValidate>
+    <StickyForm pending={aPending} onSubmit={a} className="card max-w-xl space-y-4" noValidate>
       <FormMessage state={s} />
       <Field label="Seu nome" name="name" state={s}><input id="name" name="name" defaultValue={name} className="input" /></Field>
       <div><span className="label">E-mail de acesso</span><p className="rounded-xl bg-light px-3.5 py-3">{email}</p></div>
@@ -13,6 +13,6 @@ export function AccountForm({ name, email }: { name: string; email: string }) {
       <Field label="Senha atual" name="current" state={s}><input id="current" name="current" type="password" autoComplete="current-password" className="input" /></Field>
       <Field label="Nova senha" name="password" state={s}><input id="password" name="password" type="password" autoComplete="new-password" className="input" /></Field>
       <Submit>Salvar</Submit>
-    </form>
+    </StickyForm>
   );
 }

@@ -1,15 +1,16 @@
 "use client";
-import { useEffect, useRef, useState, useActionState } from "react";
+import { useStickyAction, StickyForm } from "@/components/form-kit";
+import { useEffect, useRef, useState } from "react";
 import { addEntry } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
 
 export function EntryForm({ quotes, today }: { quotes: { id: string; label: string; total: string }[]; today: string }) {
-  const [s, a] = useActionState(addEntry, undefined);
+  const [s, a, aPending] = useStickyAction(addEntry);
   const ref = useRef<HTMLFormElement>(null);
   const [desc, setDesc] = useState(""); const [amount, setAmount] = useState("");
   useEffect(() => { if (s?.ok) { ref.current?.reset(); setDesc(""); setAmount(""); } }, [s]);
   return (
-    <form ref={ref} action={a} className="space-y-3" noValidate>
+    <StickyForm ref={ref} pending={aPending} onSubmit={a} className="space-y-3" noValidate>
       <FormMessage state={s} />
       <div className="grid grid-cols-2 gap-2">
         <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-line p-3 font-bold text-green-700 has-[:checked]:border-green-600 has-[:checked]:bg-green-50"><input type="radio" name="type" value="INCOME" defaultChecked className="sr-only" /> Entrada</label>
@@ -28,6 +29,6 @@ export function EntryForm({ quotes, today }: { quotes: { id: string; label: stri
         <Field label="Data" name="date" state={s}><input id="date" name="date" type="date" defaultValue={today} className="input" /></Field>
       </div>
       <Submit className="btn-primary w-full">Registrar</Submit>
-    </form>
+    </StickyForm>
   );
 }

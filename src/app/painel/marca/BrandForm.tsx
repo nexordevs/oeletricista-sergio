@@ -1,5 +1,6 @@
 "use client";
-import { useState, useActionState } from "react";
+import { useStickyAction, StickyForm } from "@/components/form-kit";
+import { useState } from "react";
 import Link from "next/link";
 import { saveBrand } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
@@ -7,13 +8,13 @@ import { Submit, FormMessage, Field } from "@/components/ui";
 type B = { professionalName: string; companyName: string | null; document: string | null; phone: string | null; whatsapp: string | null; address: string | null; email: string | null; tagline: string | null; primaryColor: string; accentColor: string; defaultPaymentTerms: string | null; defaultExecution: string | null; defaultValidityDays: number; defaultNotes: string | null; hasLogo: boolean; hasSignature: boolean; v: number };
 
 export function BrandForm({ b, full }: { b: B; full: boolean }) {
-  const [s, a] = useActionState(saveBrand, undefined);
+  const [s, a, aPending] = useStickyAction(saveBrand);
   const [primary, setPrimary] = useState(b.primaryColor);
   const [accent, setAccent] = useState(b.accentColor);
   const [preview, setPreview] = useState<string | null>(null);
   const t = (k: keyof B) => (b[k] as string | null) ?? "";
   return (
-    <form action={a} className="space-y-6" noValidate>
+    <StickyForm pending={aPending} onSubmit={a} className="space-y-6" noValidate>
       <FormMessage state={s} />
       <section className="card space-y-4">
         <p className="text-lg font-bold text-navy">Logomarca</p>
@@ -72,6 +73,6 @@ export function BrandForm({ b, full }: { b: B; full: boolean }) {
         <Field label="Observações padrão" name="defaultNotes" state={s}><textarea id="defaultNotes" name="defaultNotes" rows={3} defaultValue={t("defaultNotes")} placeholder="Ex.: Garantia de 90 dias na mão de obra." className="input" /></Field>
       </section>
       <div className="sticky bottom-20 z-10 lg:bottom-4"><Submit className="btn-primary w-full shadow-lg sm:w-auto">Salvar minha marca</Submit></div>
-    </form>
+    </StickyForm>
   );
 }

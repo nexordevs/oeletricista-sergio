@@ -1,9 +1,11 @@
 "use client";
 import { useFormStatus } from "react-dom";
+import { usePendingOverride } from "./form-kit";
 import type { ActionState } from "@/lib/form";
 
 export function Submit({ children, className = "btn-primary", pending: pendingLabel = "Salvando..." }: { children: React.ReactNode; className?: string; pending?: string }) {
-  const { pending } = useFormStatus();
+  const status = useFormStatus(); const override = usePendingOverride();
+  const pending = override ?? status.pending;
   return <button type="submit" className={className} disabled={pending}>{pending ? pendingLabel : children}</button>;
 }
 
