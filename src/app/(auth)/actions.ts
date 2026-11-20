@@ -29,7 +29,7 @@ export async function signup(_: ActionState, fd: FormData): Promise<ActionState>
   const { name, email, password, plano } = p.data;
   if (await prisma.user.findUnique({ where: { email } })) return { error: "Já existe uma conta com este e-mail.", fields: { email: "E-mail já cadastrado — use “Entrar”." } };
   const user = await prisma.user.create({
-    data: { name, email, passwordHash: await hashPassword(password), brand: { create: { professionalName: name, email } } },
+    data: { name, email, passwordHash: await hashPassword(password), brand: { create: { professionalName: name } } },
   });
   await provisionServices(user.id);
   await createSession(user.id);

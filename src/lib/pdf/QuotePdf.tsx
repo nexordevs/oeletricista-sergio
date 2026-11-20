@@ -23,6 +23,8 @@ const qty = (n: unknown) => toNum(n as number).toLocaleString("pt-BR", { maximum
 
 export type PdfData = { brand: Brand; quote: Quote & { items: QuoteItem[] } };
 
+const norm = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
 export function QuotePdf({ brand, quote }: PdfData) {
   const P = brand.primaryColor || "#0F2742", A = brand.accentColor || "#FFB400", P2 = mix(P, 0.1), SOFT = mix(P, 0.7);
   const s = StyleSheet.create({
@@ -55,7 +57,7 @@ export function QuotePdf({ brand, quote }: PdfData) {
             {logo && <View style={{ width: 74, height: 74, backgroundColor: "#fff", borderRadius: 37, alignItems: "center", justifyContent: "center", marginRight: 12, borderWidth: 3, borderColor: A }}><Image src={logo} style={{ width: 54, height: 54, objectFit: "contain" }} /></View>}
             <View style={{ flex: 1 }}>
               <Text style={{ color: "#fff", fontSize: 22, fontWeight: 700 }}>{brand.companyName || brand.professionalName}</Text>
-              {brand.companyName && <Text style={{ color: A, fontSize: 10, fontWeight: 700, marginTop: 1 }}>{brand.professionalName}</Text>}
+              {brand.companyName && !norm(brand.companyName).includes(norm(brand.professionalName)) && <Text style={{ color: A, fontSize: 10, fontWeight: 700, marginTop: 1 }}>{brand.professionalName}</Text>}
               {brand.tagline && <Text style={{ color: SOFT, fontSize: 9, marginTop: 4 }}>{brand.tagline}</Text>}
               {brand.document && <Text style={{ color: SOFT, fontSize: 8.5, marginTop: 2 }}>{brand.document.replace(/\D/g, "").length === 14 ? "CNPJ" : "CPF"}: {brand.document}</Text>}
             </View>

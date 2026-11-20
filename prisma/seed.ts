@@ -48,7 +48,7 @@ async function syncAdmin() {
   if (!admin) {
     if (byEmail) return console.warn(`O e-mail ${email} já pertence a um eletricista assinante — escolha outro ADMIN_EMAIL.`);
     if (!pass) return console.warn("Defina ADMIN_PASSWORD para criar o administrador.");
-    const u = await prisma.user.create({ data: { email, name, role: "ADMIN", onboardedAt: new Date(), passwordHash: await bcrypt.hash(pass, 12), brand: { create: { professionalName: name, email } } } });
+    const u = await prisma.user.create({ data: { email, name, role: "ADMIN", onboardedAt: new Date(), passwordHash: await bcrypt.hash(pass, 12), brand: { create: { professionalName: name } } } });
     await provisionServices(u.id);
     return console.log(`Administrador criado: ${email}`);
   }

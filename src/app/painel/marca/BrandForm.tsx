@@ -34,13 +34,13 @@ export function BrandForm({ b, full }: { b: B; full: boolean }) {
 
       <section className="card grid gap-4 sm:grid-cols-2">
         <p className="text-lg font-bold text-navy sm:col-span-2">Seus dados (aparecem no orçamento)</p>
-        <Field label="Nome profissional" name="professionalName" state={s}><input id="professionalName" name="professionalName" defaultValue={b.professionalName} className="input" /></Field>
-        <Field label="Nome da empresa (opcional)" name="companyName" state={s}><input id="companyName" name="companyName" defaultValue={t("companyName")} className="input" /></Field>
+        <Field label="Nome profissional" name="professionalName" state={s} hint="Aparece na linha de assinatura, no fim do orçamento."><input id="professionalName" name="professionalName" defaultValue={b.professionalName} className="input" /></Field>
+        <Field label="Nome da empresa (opcional)" name="companyName" state={s} hint="Se preenchido, é o nome grande no topo e no rodapé."><input id="companyName" name="companyName" defaultValue={t("companyName")} className="input" /></Field>
         <Field label="CPF ou CNPJ" name="document" state={s}><input id="document" name="document" defaultValue={t("document")} inputMode="numeric" className="input" /></Field>
         <Field label="Frase abaixo do nome" name="tagline" state={s}><input id="tagline" name="tagline" defaultValue={t("tagline")} placeholder="Instalações • Manutenção • Emergência" className="input" /></Field>
         <Field label="WhatsApp" name="whatsapp" state={s}><input id="whatsapp" name="whatsapp" defaultValue={t("whatsapp")} inputMode="tel" placeholder="(83) 9 0000-0000" className="input" /></Field>
         <Field label="Telefone (opcional)" name="phone" state={s}><input id="phone" name="phone" defaultValue={t("phone")} inputMode="tel" className="input" /></Field>
-        <Field label="E-mail" name="email" state={s}><input id="email" name="email" type="email" defaultValue={t("email")} className="input" /></Field>
+        <Field label="E-mail no orçamento (opcional)" name="email" state={s} hint="Deixe em branco para não mostrar e-mail. Não precisa ser o e-mail do login."><input id="email" name="email" type="email" defaultValue={t("email")} placeholder="contato@seudominio.com.br" className="input" /></Field>
         <Field label="Endereço / cidade" name="address" state={s}><input id="address" name="address" defaultValue={t("address")} className="input" /></Field>
       </section>
 
