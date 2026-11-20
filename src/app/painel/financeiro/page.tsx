@@ -36,7 +36,7 @@ export default async function Financeiro(props: { searchParams: Promise<{ m?: st
         {entries.length === 0 ? <div className="card text-center text-muted">Nenhum lançamento neste mês.</div> : (
           <ul className="card divide-y divide-line p-0">{entries.map((e) => (
             <li key={e.id} className="flex items-center justify-between gap-3 px-5 py-3">
-              <span><b className="block text-navy">{e.description}</b><span className="text-xs text-muted">{fmtDate(e.date)}</span></span>
+              <span><b className="block text-navy">{e.description}</b><span className="text-xs text-muted">{fmtDate(e.date)}{e.auto && <span className="badge ml-2 bg-light text-navy">automático</span>}</span></span>
               <span className="flex items-center gap-3"><b className={e.type === "INCOME" ? "text-green-700" : "text-red-700"}>{e.type === "INCOME" ? "+" : "−"} {brl(e.amount)}</b>
                 <form action={deleteEntry}><input type="hidden" name="id" value={e.id} /><ConfirmButton message="Excluir lançamento?" className="text-xs font-bold text-muted hover:text-red-700">Excluir</ConfirmButton></form></span>
             </li>))}

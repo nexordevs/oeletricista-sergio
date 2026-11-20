@@ -111,7 +111,11 @@ export async function duplicateQuote(fd: FormData) {
 
 export async function deleteQuote(fd: FormData) {
   const user = await requireUser();
-  await prisma.quote.deleteMany({ where: { id: String(fd.get("id")), userId: user.id } });
+  const id = String(fd.get("id"));
+  await prisma.$transaction([
+    prisma.financeEntry.deleteMany({ where: { quoteId: id, userId: user.id, auto: true } }), // lançamento automático sai junto
+    prisma.quote.deleteMany({ where: { id, userId: user.id } }),
+  ]);
   revalidatePath("/painel/orcamentos");
   redirect("/painel/orcamentos");
 }
@@ -125,8 +129,21 @@ export async function setStatus(fd: FormData) {
   if (!hasFeature(await getAccess(user), "status")) redirect("/painel/assinatura");
   const q = await owned(id, user.id);
   if (q.status === "DRAFT") throw new Error("Finalize o orçamento antes.");
-  await prisma.quote.update({ where: { id }, data: { status, decidedAt: status === "SENT" ? null : new Date(), ...(status === "SENT" ? { issuedAt: new Date() } : {}) } });
-  revalidatePath(`/painel/orcamentos/${id}`);
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    await tx.quote.update({ where: { id }, data: { status, decidedAt: status === "SENT" ? null : now, ...(status === "SENT" ? { issuedAt: now } : {}) } });
+    if (status === "APPROVED") {
+      // Lançamento automático no financeiro (sem duplicar se já houver lançamento deste orçamento)
+      const exists = await tx.financeEntry.count({ where: { quoteId: id, userId: user.id } });
+      if (!exists && Number(q.total) > 0)
+        await tx.financeEntry.create({ data: { userId: user.id, quoteId: id, auto: true, type: "INCOME", amount: q.total, date: now,
+          description: `Orçamento nº ${String(q.number).padStart(3, "0")} aprovado – ${q.clientName}`.slice(0, 150) } });
+    } else {
+      // Deixou de estar aprovado: remove só o lançamento automático (os manuais ficam)
+      await tx.financeEntry.deleteMany({ where: { quoteId: id, userId: user.id, auto: true } });
+    }
+  });
+  revalidatePath(`/painel/orcamentos/${id}`); revalidatePath("/painel/financeiro"); revalidatePath("/painel");
 }
 
 /** Registra que o orçamento foi compartilhado (ex.: WhatsApp). */

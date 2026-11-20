@@ -250,9 +250,11 @@ model FinanceEntry {
   date        DateTime
   quoteId     String?
   quote       Quote?      @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  auto        Boolean     @default(false) // criado automaticamente pela aprovação do orçamento
   createdAt   DateTime    @default(now())
 
   @@index([userId, date])
+  @@index([quoteId])
 }
 
 model Plan {

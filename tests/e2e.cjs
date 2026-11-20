@@ -69,10 +69,22 @@ async function makeQuote(p, client, beforeClick) {
   await A.goto(B + '/painel/orcamentos/' + qid);
   await A.click('button:has-text("Aprovado")'); await A.waitForTimeout(2500);
   ok(sql(`select status from "Quote" where id='${qid}'`) === 'APPROVED', 'botão Aprovado muda o status para APROVADO');
+  ok(sql(`select count(*) from "FinanceEntry" f join "Quote" q on q.id=f."quoteId" where f."quoteId"='${qid}' and f.auto and f.type='INCOME' and f.amount=q.total`) === '1', 'aprovação cria o lançamento automático no financeiro (valor do orçamento)');
+  await A.goto(B + '/painel/financeiro'); ok(await A.isVisible('text=automático'), 'financeiro mostra o lançamento com selo "automático"');
+  await A.goto(B + '/painel/orcamentos/' + qid);
   await A.click('button:has-text("Voltar para")'); await A.waitForTimeout(2500);
   ok(sql(`select status from "Quote" where id='${qid}'`) === 'SENT', 'botão Voltar para Enviado funciona');
+  ok(sql(`select count(*) from "FinanceEntry" where "quoteId"='${qid}'`) === '0', 'voltar para Enviado remove o lançamento automático');
   await A.click('button:has-text("Recusado")'); await A.waitForTimeout(2500);
   ok(sql(`select status from "Quote" where id='${qid}'`) === 'REJECTED', 'botão Recusado muda o status para RECUSADO');
+  ok(sql(`select count(*) from "FinanceEntry" where "quoteId"='${qid}'`) === '0', 'recusado não gera lançamento');
+  // lançamento manual nunca é apagado nem duplicado
+  sql(`insert into "FinanceEntry"(id,"userId",type,description,amount,date,"quoteId") values ('man${t}','${aId}','INCOME','Recebido à mão',50,now(),'${qid}')`);
+  await A.click('button:has-text("Voltar para")'); await A.waitForTimeout(2000); await A.click('button:has-text("Aprovado")'); await A.waitForTimeout(2500);
+  ok(sql(`select count(*) from "FinanceEntry" where "quoteId"='${qid}'`) === '1', 'com lançamento manual já existente, aprovação não duplica');
+  await A.click('button:has-text("Voltar para")'); await A.waitForTimeout(2500);
+  ok(sql(`select count(*) from "FinanceEntry" where id='man${t}'`) === '1', 'lançamento manual não é removido ao mudar o status');
+  sql(`delete from "FinanceEntry" where id='man${t}'`);
   sql(`update "Quote" set status='SENT', "decidedAt"=null where id='${qid}'`);
 
   // Isolamento: B não vê nada de A
