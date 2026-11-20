@@ -131,7 +131,7 @@ export async function setStatus(fd: FormData) {
   if (q.status === "DRAFT") throw new Error("Finalize o orçamento antes.");
   const now = new Date();
   await prisma.$transaction(async (tx) => {
-    await tx.quote.update({ where: { id }, data: { status, decidedAt: status === "SENT" ? null : now, ...(status === "SENT" ? { issuedAt: now } : {}) } });
+    await tx.quote.update({ where: { id }, data: { status, autoRejected: false, decidedAt: status === "SENT" ? null : now, ...(status === "SENT" ? { issuedAt: now } : {}) } });
     if (status === "APPROVED") {
       // Lançamento automático no financeiro (sem duplicar se já houver lançamento deste orçamento)
       const exists = await tx.financeEntry.count({ where: { quoteId: id, userId: user.id } });

@@ -87,6 +87,17 @@ async function makeQuote(p, client, beforeClick) {
   sql(`delete from "FinanceEntry" where id='man${t}'`);
   sql(`update "Quote" set status='SENT', "decidedAt"=null where id='${qid}'`);
 
+  // Recusa automática: enviado há 8 dias sem resposta → Recusado; há 6 dias → continua Enviado
+  sql(`insert into "Quote"(id,"userId",number,"clientName","shareToken",status,"issuedAt","updatedAt") values ('old${t}','${aId}',901,'Cliente Sumido','tokold${t}abcdefghijkl','SENT',now()-interval '8 day',now()),('new${t}','${aId}',902,'Cliente Recente','toknew${t}abcdefghijkl','VIEWED',now()-interval '6 day',now())`);
+  await A.goto(B + '/painel/orcamentos');
+  ok(sql(`select status||'|'||"autoRejected" from "Quote" where id='old${t}'`) === 'REJECTED|true', 'sem resposta há 8 dias → Recusado automaticamente');
+  ok(sql(`select status from "Quote" where id='new${t}'`) === 'VIEWED', 'visualizado há 6 dias → continua aguardando');
+  await A.goto(B + '/painel/orcamentos/old' + t); ok(await A.isVisible('text=Recusado automaticamente'), 'orçamento mostra aviso de recusa automática');
+  sql(`update "Quote" set status='SENT', "autoRejected"=false, "issuedAt"=now()-interval '9 day' where id='new${t}'`);
+  const cl = await (await b.newContext()).newPage(); await cl.goto(`${B}/o/toknew${t}abcdefghijkl`);
+  ok(await cl.isVisible('text=não está mais disponível'), 'cliente abrindo o link depois do prazo vê que a proposta não está disponível');
+  sql(`delete from "Quote" where id in ('old${t}','new${t}')`);
+
   // Isolamento: B não vê nada de A
   const Bp = await signup(b, 'Eletricista B', `b${t}@teste.local`);
   const r1 = await Bp.goto(B + '/painel/orcamentos/' + qid); ok(r1.status() === 404, 'B não abre orçamento de A (404)');

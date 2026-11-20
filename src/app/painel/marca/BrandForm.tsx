@@ -5,7 +5,7 @@ import Link from "next/link";
 import { saveBrand } from "./actions";
 import { Submit, FormMessage, Field } from "@/components/ui";
 
-type B = { professionalName: string; companyName: string | null; document: string | null; phone: string | null; whatsapp: string | null; address: string | null; email: string | null; tagline: string | null; primaryColor: string; accentColor: string; defaultPaymentTerms: string | null; defaultExecution: string | null; defaultValidityDays: number; defaultNotes: string | null; hasLogo: boolean; hasSignature: boolean; v: number };
+type B = { professionalName: string; companyName: string | null; document: string | null; phone: string | null; whatsapp: string | null; address: string | null; email: string | null; tagline: string | null; primaryColor: string; accentColor: string; defaultPaymentTerms: string | null; defaultExecution: string | null; defaultValidityDays: number; autoRejectDays: number; defaultNotes: string | null; hasLogo: boolean; hasSignature: boolean; v: number };
 
 export function BrandForm({ b, full }: { b: B; full: boolean }) {
   const [s, a, aPending] = useStickyAction(saveBrand);
@@ -70,6 +70,7 @@ export function BrandForm({ b, full }: { b: B; full: boolean }) {
         <Field label="Condições de pagamento" name="defaultPaymentTerms" state={s}><input id="defaultPaymentTerms" name="defaultPaymentTerms" defaultValue={t("defaultPaymentTerms")} className="input" /></Field>
         <Field label="Prazo de execução" name="defaultExecution" state={s}><input id="defaultExecution" name="defaultExecution" defaultValue={t("defaultExecution")} className="input" /></Field>
         <Field label="Validade (dias)" name="defaultValidityDays" state={s}><input id="defaultValidityDays" name="defaultValidityDays" type="number" min={1} max={180} defaultValue={b.defaultValidityDays} className="input" /></Field>
+        <Field label="Recusar automaticamente sem resposta após (dias)" name="autoRejectDays" state={s} hint="Orçamento enviado sem resposta vira “Recusado” sozinho. Se o cliente voltar, duplique e envie um novo."><input id="autoRejectDays" name="autoRejectDays" type="number" min={1} max={90} defaultValue={b.autoRejectDays} className="input" /></Field>
         <Field label="Observações padrão" name="defaultNotes" state={s}><textarea id="defaultNotes" name="defaultNotes" rows={3} defaultValue={t("defaultNotes")} placeholder="Ex.: Garantia de 90 dias na mão de obra." className="input" /></Field>
       </section>
       <div className="sticky bottom-20 z-10 lg:bottom-4"><Submit className="btn-primary w-full shadow-lg sm:w-auto">Salvar minha marca</Submit></div>

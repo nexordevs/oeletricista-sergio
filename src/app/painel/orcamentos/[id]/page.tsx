@@ -24,7 +24,7 @@ export default async function Detalhe(
   await expireQuotes(user.id);
   const q = await prisma.quote.findFirst({ where: { id: params.id, userId: user.id }, include: { items: { orderBy: { position: "asc" } } } });
   if (!q) notFound();
-  const brand = await prisma.brand.findUnique({ where: { userId: user.id }, select: { professionalName: true } });
+  const brand = await prisma.brand.findUnique({ where: { userId: user.id }, select: { professionalName: true, autoRejectDays: true } });
   const num = String(q.number).padStart(3, "0");
   const link = `${env.appUrl}/o/${q.shareToken}`;
   const canStatus = hasFeature(access, "status");
@@ -41,6 +41,7 @@ export default async function Detalhe(
             <div><p className="text-sm font-bold text-muted">Orçamento nº {num}</p><p className="text-xl font-bold text-navy">{q.clientName}</p><p className="text-sm text-muted">{q.title}</p></div>
             <StatusBadge s={q.status} />
           </div>
+          {q.autoRejected && <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-800">Recusado automaticamente: sem resposta do cliente em {brand?.autoRejectDays ?? 7} dias. Se ele voltar, use “Duplicar” para enviar um orçamento novo.</p>}
           <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <div><dt className="text-muted">Criado</dt><dd className="font-bold">{fmtDate(q.createdAt)}</dd></div>
             <div><dt className="text-muted">Emitido</dt><dd className="font-bold">{fmtDate(q.issuedAt)}</dd></div>

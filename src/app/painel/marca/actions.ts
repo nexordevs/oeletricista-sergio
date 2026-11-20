@@ -14,6 +14,7 @@ const schema = z.object({
   primaryColor: color, accentColor: color,
   defaultPaymentTerms: zOpt(300), defaultExecution: zOpt(120), defaultNotes: zOpt(1000),
   defaultValidityDays: z.coerce.number().int().min(1, "Mínimo 1 dia").max(180, "Máximo 180 dias"),
+  autoRejectDays: z.coerce.number().int().min(1, "Mínimo 1 dia").max(90, "Máximo 90 dias"),
 });
 
 export async function saveBrand(_: ActionState, fd: FormData): Promise<ActionState> {

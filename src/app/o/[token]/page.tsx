@@ -41,7 +41,8 @@ export default async function PublicQuote(props: { params: Promise<{ token: stri
         </div>
       </header>
       <main className="mx-auto max-w-3xl space-y-4 px-4 pt-6">
-        {expired && <p className="rounded-xl bg-amber-100 px-4 py-3 font-bold text-amber-900">Esta proposta venceu em {fmtDate(validUntil)}. Fale com o profissional para atualizar os valores.</p>}
+        {quote.status === "REJECTED" ? <p className="rounded-xl bg-amber-100 px-4 py-3 font-bold text-amber-900">Esta proposta não está mais disponível. Fale com o profissional para receber um novo orçamento.</p>
+          : expired && <p className="rounded-xl bg-amber-100 px-4 py-3 font-bold text-amber-900">Esta proposta venceu em {fmtDate(validUntil)}. Fale com o profissional para atualizar os valores.</p>}
         {quote.status === "APPROVED" && <p className="rounded-xl bg-green-100 px-4 py-3 font-bold text-green-800">Orçamento aprovado.</p>}
         <section className="card">
           <p className="text-xs font-bold uppercase text-muted">Cliente</p><p className="text-lg font-bold" style={{ color: P }}>{quote.clientName}</p>
