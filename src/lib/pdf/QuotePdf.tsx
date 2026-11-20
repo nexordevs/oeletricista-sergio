@@ -5,6 +5,7 @@ import React from "react";
 import { Document, Page, View, Text, Image, Font, StyleSheet, Svg, Polygon, renderToBuffer } from "@react-pdf/renderer";
 import type { Brand, Quote, QuoteItem } from "@prisma/client";
 import { brl, fmtDate, fmtPhone, toNum } from "../money";
+import { quoteSubject } from "../quote-title";
 
 const F = path.join(process.cwd(), "public/fonts");
 Font.register({ family: "Brand", fonts: [
@@ -81,11 +82,10 @@ export function QuotePdf({ brand, quote }: PdfData) {
               <Info label="Cliente" value={quote.clientName} w="60%" />
               <Info label="Telefone" value={fmtPhone(quote.clientPhone) || "—"} w="40%" />
               <Info label="Endereço" value={quote.clientAddress || "—"} w="100%" />
+              {quoteSubject(quote.title) && <Info label="Referente a" value={quoteSubject(quote.title)!} w="100%" />}
             </View>
           </View>
 
-          <Text style={s.sectionTitle}>Serviço</Text><View style={s.bar} />
-          <Text style={{ fontSize: 11 }}>{quote.title}</Text>
 
           {/* ITENS */}
           {groups.map((g) => (

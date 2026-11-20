@@ -5,7 +5,7 @@ import { Submit } from "@/components/ui";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { brl } from "@/lib/money";
 
-type S = { id: string; name: string; unit: string; price: string; category: string; kind: string; suggested: string | null; min: string | null; max: string | null };
+type S = { id: string; name: string; unit: string; price: string; category: string; kind: string; markup: number; suggested: string | null; min: string | null; max: string | null };
 export function ServiceRow({ s }: { s: S }) {
   const [st, a, aPending] = useStickyAction(saveService);
   const diff = s.suggested != null && Number(s.suggested) !== Number(s.price);
@@ -15,11 +15,11 @@ export function ServiceRow({ s }: { s: S }) {
         <input type="hidden" name="id" value={s.id} /><input type="hidden" name="category" value={s.category} /><input type="hidden" name="kind" value={s.kind} />
         <div className="col-span-2 sm:col-span-1"><label className="sr-only" htmlFor={`n${s.id}`}>Nome</label><input id={`n${s.id}`} name="name" defaultValue={s.name} className="input py-2.5 font-bold" /></div>
         <div><label className="text-[11px] font-bold uppercase text-muted" htmlFor={`u${s.id}`}>Unid.</label><input id={`u${s.id}`} name="unit" defaultValue={s.unit} className="input py-2.5" /></div>
-        <div><label className="text-[11px] font-bold uppercase text-muted" htmlFor={`p${s.id}`}>Preço (R$)</label><input id={`p${s.id}`} name="price" defaultValue={Number(s.price).toFixed(2).replace(".", ",")} inputMode="decimal" className="input py-2.5 text-right font-bold" /></div>
+        <div><label className="text-[11px] font-bold uppercase text-muted" htmlFor={`p${s.id}`}>{s.kind === "MATERIAL" ? "Custo (R$)" : "Preço (R$)"}</label><input id={`p${s.id}`} name="price" defaultValue={Number(s.price).toFixed(2).replace(".", ",")} inputMode="decimal" className="input py-2.5 text-right font-bold" /></div>
         <div className="col-span-2 flex gap-2 sm:col-span-1"><Submit className="btn-navy btn-sm flex-1" pending="...">Salvar</Submit></div>
       </StickyForm>
       <div className="mt-1 flex items-center justify-between text-xs">
-        <span className="text-muted">{[s.min && s.max ? `Mercado: ${brl(s.min)} a ${brl(s.max)}` : "", diff ? `${s.kind === "MATERIAL" ? "referência" : "médio"} ${brl(s.suggested)}` : ""].filter(Boolean).join(" · ")} {st?.ok && <b className="text-green-700">✓ {st.message}</b>}{st?.error && <b className="text-red-700">{Object.values(st.fields || {})[0] || st.error}</b>}</span>
+        <span className="text-muted">{[s.kind === "MATERIAL" && s.markup > 0 ? `Cliente paga ${brl(Math.round(Number(s.price) * (100 + s.markup)) / 100)} (+${s.markup}%)` : "", s.min && s.max ? `Mercado: ${brl(s.min)} a ${brl(s.max)}` : "", diff ? `${s.kind === "MATERIAL" ? "referência" : "médio"} ${brl(s.suggested)}` : ""].filter(Boolean).join(" · ")} {st?.ok && <b className="text-green-700">✓ {st.message}</b>}{st?.error && <b className="text-red-700">{Object.values(st.fields || {})[0] || st.error}</b>}</span>
         <form action={deleteService}><input type="hidden" name="id" value={s.id} /><ConfirmButton message={`Remover "${s.name}" da sua tabela?`} className="font-bold text-red-700 hover:underline">Remover</ConfirmButton></form>
       </div>
     </div>

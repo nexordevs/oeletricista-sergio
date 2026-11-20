@@ -136,7 +136,8 @@ model Brand {
   defaultPaymentTerms String? @default("50% na aprovação e 50% na conclusão")
   defaultExecution    String? @default("A combinar")
   defaultValidityDays Int     @default(7)
-  autoRejectDays      Int     @default(7) // sem resposta após X dias → recusado automaticamente
+  autoRejectDays      Int     @default(7)
+  materialMarkup      Int     @default(0) // % de ganho somado ao custo do material da tabela // sem resposta após X dias → recusado automaticamente
   defaultNotes        String?
   updatedAt      DateTime @updatedAt
 }

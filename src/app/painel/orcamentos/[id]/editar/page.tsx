@@ -1,3 +1,4 @@
+import { quoteSubject } from "@/lib/quote-title";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { panelContext } from "@/lib/panel";
@@ -13,8 +14,8 @@ export default async function Editar(props: { params: Promise<{ id: string }> })
   if (q.status === "APPROVED" || q.status === "REJECTED") redirect(`/painel/orcamentos/${q.id}`);
   const { services, clients, brand } = await editorData(user.id);
   return (
-    <QuoteEditor services={services} clients={clients} defaultNotes={brand?.defaultNotes} blocked={access.active ? undefined : "Assinatura inativa: não é possível salvar alterações."} initial={{
-      id: q.id, status: q.status, clientId: q.clientId, clientName: q.clientName, clientPhone: q.clientPhone ?? "", clientAddress: q.clientAddress ?? "", title: q.title,
+    <QuoteEditor services={services} clients={clients} defaultNotes={brand?.defaultNotes} markup={brand?.materialMarkup ?? 0} blocked={access.active ? undefined : "Assinatura inativa: não é possível salvar alterações."} initial={{
+      id: q.id, status: q.status, clientId: q.clientId, clientName: q.clientName, clientPhone: q.clientPhone ?? "", clientAddress: q.clientAddress ?? "", title: quoteSubject(q.title) ?? "",
       items: q.items.map((i) => ({ kind: i.kind, description: i.description, unit: i.unit, quantity: String(Number(i.quantity)).replace(".", ","), unitPrice: f(i.unitPrice) })),
       travelFee: Number(q.travelFee) ? f(q.travelFee) : "", discountType: q.discountType, discountValue: Number(q.discountValue) ? String(Number(q.discountValue)).replace(".", ",") : "",
       paymentTerms: q.paymentTerms ?? "", executionTime: q.executionTime ?? "", validityDays: String(q.validityDays), notes: q.notes ?? "",

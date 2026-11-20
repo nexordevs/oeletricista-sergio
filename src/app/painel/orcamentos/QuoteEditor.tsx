@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { calcQuote } from "@/lib/quote-calc";
 import { brl } from "@/lib/money";
+import { withMarkup } from "@/lib/quote-title";
 import { saveQuote, type QuotePayload } from "./actions";
 import { IconPlus, IconTrash, IconX } from "@/components/icons";
 
@@ -22,7 +23,8 @@ const fmt = (n: number) => n.toFixed(2).replace(".", ",");
 let seq = 0; const k = () => `i${++seq}`;
 const KIND_LABEL: Record<Kind, string> = { SERVICE: "Serviço", MATERIAL: "Material", LABOR: "Mão de obra" };
 
-export function QuoteEditor({ initial, services, clients, blocked, defaultNotes }: { initial: EditorInitial; services: Svc[]; clients: Cli[]; blocked?: string; defaultNotes?: string | null }) {
+export function QuoteEditor({ initial, services, clients, blocked, defaultNotes, markup = 0 }: { initial: EditorInitial; services: Svc[]; clients: Cli[]; blocked?: string; defaultNotes?: string | null; markup?: number }) {
+  const [margin, setMargin] = useState(String(markup));
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,9 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes 
   const norm = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const words = norm(search).split(/\s+/).filter(Boolean);
   const filtered = services.filter((s) => (s.kind === "MATERIAL" ? "MATERIAL" : "SERVICE") === picker && words.every((w) => norm(`${s.name} ${s.category}`).includes(w)));
-  const addService = (s: Svc) => { setItems((p) => [...p, { key: k(), kind: s.kind === "MATERIAL" ? "MATERIAL" : "SERVICE", description: s.name, unit: s.unit, quantity: "1", unitPrice: fmt(s.price) }]); setPicker(null); setSearch(""); };
+  const marginPct = Math.max(0, parse(margin));
+  const salePrice = (s: Svc) => (s.kind === "MATERIAL" ? withMarkup(s.price, marginPct) : s.price);
+  const addService = (s: Svc) => { setItems((p) => [...p, { key: k(), kind: s.kind === "MATERIAL" ? "MATERIAL" : "SERVICE", description: s.name, unit: s.unit, quantity: "1", unitPrice: fmt(salePrice(s)) }]); setPicker(null); setSearch(""); };
   const addBlank = (kind: Kind) => setItems((p) => [...p, { key: k(), kind, description: kind === "LABOR" ? "Mão de obra" : "", unit: kind === "LABOR" ? "serv" : "un", quantity: "1", unitPrice: "" }]);
   const upd = (key: string, f: Partial<Item>) => setItems((p) => p.map((i) => (i.key === key ? { ...i, ...f } : i)));
   const pickClient = (id: string) => {
@@ -94,7 +98,7 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes 
           </div>
         )}
         {!newClient && v.clientId && <p className="text-sm text-muted">{[v.clientPhone, v.clientAddress].filter(Boolean).join(" · ") || "Sem telefone/endereço cadastrado"}</p>}
-        <div><label className="label" htmlFor="title">Título do serviço</label><input id="title" className="input" value={v.title} onChange={(e) => set("title", e.target.value)} /></div>
+        <div><label className="label" htmlFor="title">Descrição do serviço <span className="font-normal text-muted">(opcional)</span></label><input id="title" className="input" value={v.title} onChange={(e) => set("title", e.target.value)} placeholder="Ex.: Troca do quadro de distribuição" /></div>
       </section>
 
       {/* 2-5. ITENS */}
@@ -123,6 +127,11 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes 
           <button type="button" onClick={() => setPicker("MATERIAL")} className="btn-navy"><IconPlus /> Material</button>
           <button type="button" onClick={() => addBlank("MATERIAL")} className="btn-outline text-sm"><IconPlus /> Material avulso</button>
           <button type="button" onClick={() => addBlank("LABOR")} className="btn-outline text-sm"><IconPlus /> Mão de obra</button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-light px-3 py-2 text-sm">
+          <label htmlFor="margin" className="font-bold text-navy">Seu ganho no material da tabela:</label>
+          <span className="flex items-center gap-1"><input id="margin" className="input w-20 py-1.5 text-right" inputMode="decimal" value={margin} onChange={(e) => setMargin(e.target.value)} /> %</span>
+          {items.some((i) => i.kind === "MATERIAL") && <button type="button" className="text-xs font-bold text-navy underline" onClick={() => setItems((p) => p.map((i) => { const s = services.find((x) => x.kind === "MATERIAL" && x.name === i.description); return s && i.kind === "MATERIAL" ? { ...i, unitPrice: fmt(salePrice(s)) } : i; }))}>Aplicar nos materiais já adicionados</button>}
         </div>
       </section>
 
@@ -174,7 +183,7 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes 
               {filtered.length === 0 && <li className="p-6 text-center text-muted">Nada encontrado. <Link href={`/painel/servicos${picker === "MATERIAL" ? "?tipo=material" : ""}`} className="font-bold underline">Cadastrar na minha tabela</Link>{picker === "MATERIAL" && <> ou <button type="button" className="font-bold underline" onClick={() => { addBlank("MATERIAL"); setPicker(null); setSearch(""); }}>adicionar material avulso</button></>}</li>}
               {filtered.map((s) => (
                 <li key={s.id}><button type="button" onClick={() => addService(s)} className="flex w-full items-center justify-between gap-3 border-b border-line px-4 py-3 text-left hover:bg-light">
-                  <span><b className="block text-navy">{s.name}</b><span className="text-xs text-muted">{s.category} · por {s.unit}</span></span><b className="shrink-0">{brl(s.price)}</b>
+                  <span><b className="block text-navy">{s.name}</b><span className="text-xs text-muted">{s.category} · por {s.unit}</span></span><span className="shrink-0 text-right"><b className="block">{brl(salePrice(s))}</b>{s.kind === "MATERIAL" && marginPct > 0 && <span className="text-xs text-muted">custo {brl(s.price)} + {marginPct}%</span>}</span>
                 </button></li>
               ))}
             </ul>

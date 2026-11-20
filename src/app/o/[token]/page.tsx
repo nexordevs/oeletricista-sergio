@@ -1,3 +1,4 @@
+import { quoteSubject } from "@/lib/quote-title";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
@@ -47,7 +48,7 @@ export default async function PublicQuote(props: { params: Promise<{ token: stri
         <section className="card">
           <p className="text-xs font-bold uppercase text-muted">Cliente</p><p className="text-lg font-bold" style={{ color: P }}>{quote.clientName}</p>
           {quote.clientAddress && <p className="text-sm text-muted">{quote.clientAddress}</p>}
-          <p className="mt-3 font-bold">{quote.title}</p>
+          {quoteSubject(quote.title) && <p className="mt-3 font-bold">{quoteSubject(quote.title)}</p>}
         </section>
         {groups.map((g) => (
           <section key={g.k} className="card p-0">

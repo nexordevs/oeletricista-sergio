@@ -34,3 +34,12 @@ export async function importLibrary(fd: FormData) {
   await provisionServices(user.id, fd.get("kind") === "MATERIAL" ? "MATERIAL" : "SERVICE");
   revalidatePath("/painel/servicos");
 }
+
+export async function saveMarkup(_: ActionState, fd: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  const n = Number(String(fd.get("materialMarkup") ?? "").replace("%", "").replace(",", ".").trim() || "0");
+  if (!Number.isFinite(n) || n < 0 || n > 500) return { error: "Informe uma margem entre 0 e 500%.", fields: { materialMarkup: "Entre 0 e 500%" } };
+  await prisma.brand.upsert({ where: { userId: user.id }, update: { materialMarkup: Math.round(n) }, create: { userId: user.id, professionalName: user.name, materialMarkup: Math.round(n) } });
+  revalidatePath("/painel/servicos");
+  return { ok: true, message: `Margem de ${Math.round(n)}% salva. Os materiais da tabela já entram no orçamento com esse ganho.` };
+}

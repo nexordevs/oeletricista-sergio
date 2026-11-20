@@ -1,3 +1,4 @@
+import { quoteSubject } from "@/lib/quote-title";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -29,7 +30,7 @@ export default async function Detalhe(
   const link = `${env.appUrl}/o/${q.shareToken}`;
   const canStatus = hasFeature(access, "status");
   const locked = q.status === "APPROVED" || q.status === "REJECTED";
-  const msg = `Olá, ${q.clientName.split(" ")[0]}! Tudo bem?\n\nSegue o orçamento nº ${num} (${q.title}) no valor de ${brl(q.total)}.\n\nVocê pode ver e baixar aqui: ${link}\n\nQualquer dúvida, estou à disposição.\n${brand?.professionalName ?? ""}`;
+  const msg = `Olá, ${q.clientName.split(" ")[0]}! Tudo bem?\n\nSegue o orçamento nº ${num}${quoteSubject(q.title) ? ` (${quoteSubject(q.title)})` : ""} no valor de ${brl(q.total)}.\n\nVocê pode ver e baixar aqui: ${link}\n\nQualquer dúvida, estou à disposição.\n${brand?.professionalName ?? ""}`;
   const discount = toNum(q.subtotal) - toNum(q.total);
 
   return (
@@ -38,7 +39,7 @@ export default async function Detalhe(
         {searchParams.salvo && <p role="status" className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 font-bold text-green-800"><IconCheck /> Orçamento salvo!</p>}
         <section className="card">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><p className="text-sm font-bold text-muted">Orçamento nº {num}</p><p className="text-xl font-bold text-navy">{q.clientName}</p><p className="text-sm text-muted">{q.title}</p></div>
+            <div><p className="text-sm font-bold text-muted">Orçamento nº {num}</p><p className="text-xl font-bold text-navy">{q.clientName}</p>{quoteSubject(q.title) && <p className="text-sm text-muted">{quoteSubject(q.title)}</p>}</div>
             <StatusBadge s={q.status} />
           </div>
           {q.autoRejected && <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-800">Recusado automaticamente: sem resposta do cliente em {brand?.autoRejectDays ?? 7} dias. Se ele voltar, use “Duplicar” para enviar um orçamento novo.</p>}

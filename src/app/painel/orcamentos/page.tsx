@@ -1,3 +1,4 @@
+import { quoteSubject } from "@/lib/quote-title";
 import Link from "next/link";
 import type { Prisma, QuoteStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -41,7 +42,7 @@ export default async function Lista(props: { searchParams: Promise<SP> }) {
         <ul className="card divide-y divide-line p-0">
           {quotes.map((q) => (
             <li key={q.id}><Link href={`/painel/orcamentos/${q.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-light">
-              <span className="min-w-0"><span className="block truncate font-bold text-navy">#{String(q.number).padStart(3, "0")} · {q.clientName}</span><span className="block truncate text-xs text-muted">{fmtDate(q.createdAt)} · {q.title}</span></span>
+              <span className="min-w-0"><span className="block truncate font-bold text-navy">#{String(q.number).padStart(3, "0")} · {q.clientName}</span><span className="block truncate text-xs text-muted">{fmtDate(q.createdAt)}{quoteSubject(q.title) ? ` · ${quoteSubject(q.title)}` : ""}</span></span>
               <span className="flex shrink-0 flex-col items-end gap-1"><b>{brl(q.total)}</b><StatusBadge s={q.status} /></span>
             </Link></li>
           ))}

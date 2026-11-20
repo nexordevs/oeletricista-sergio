@@ -1,4 +1,5 @@
 "use server";
+import { DEFAULT_QUOTE_TITLE } from "@/lib/quote-title";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -23,7 +24,7 @@ const quoteSchema = z.object({
   clientPhone: z.string().trim().max(20).optional().nullable(),
   clientAddress: z.string().trim().max(250).optional().nullable(),
   saveClient: z.boolean().optional(),
-  title: z.string().trim().min(2).max(150),
+  title: z.string().trim().max(150, "Descrição muito longa").optional().transform((v) => v || DEFAULT_QUOTE_TITLE),
   items: z.array(itemSchema).min(1, "Adicione pelo menos um item").max(150),
   travelFee: num(1_000_000),
   discountType: z.enum(["VALUE", "PERCENT"]),
