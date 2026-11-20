@@ -2,12 +2,12 @@ import "server-only";
 import { prisma } from "./db";
 import type { Plan, User } from "@prisma/client";
 
-export type Feature = "brandFull" | "clientHistory" | "status" | "whatsapp" | "finance" | "reports";
+export type Feature = "brandFull" | "clientHistory" | "status" | "whatsapp" | "finance" | "reports" | "courses";
 export type Access = { active: boolean; plan: Plan | null; source: "subscription" | "manual" | "admin" | null; until: Date | null; quotesThisMonth: number; quoteLimit: number | null };
 
 const featKey: Record<Feature, keyof Plan> = {
   brandFull: "featBrandFull", clientHistory: "featClientHistory", status: "featStatus",
-  whatsapp: "featWhatsapp", finance: "featFinance", reports: "featReports",
+  whatsapp: "featWhatsapp", finance: "featFinance", reports: "featReports", courses: "featCourses",
 };
 
 export function monthStart(d = new Date()) {

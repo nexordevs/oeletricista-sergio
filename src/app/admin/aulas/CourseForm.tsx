@@ -10,7 +10,7 @@ export function CourseForm({ c }: { c?: Course }) {
       <div><label className="label">Descrição</label><textarea name="description" rows={3} defaultValue={c?.description ?? ""} className="input" placeholder="O que o eletricista vai aprender" /></div>
       <div className="grid gap-3 sm:grid-cols-3">
         <div><label className="label">Quem pode assistir</label><select name="access" defaultValue={c?.access ?? "SUBSCRIBERS"} className="input">
-          <option value="FREE">Grátis (todo cadastrado)</option><option value="SUBSCRIBERS">Assinantes</option><option value="PAID">Curso pago (em breve)</option></select></div>
+          <option value="FREE">Grátis (todo cadastrado)</option><option value="SUBSCRIBERS">Plano com videoaulas (Premium)</option><option value="PAID">Curso pago (em breve)</option></select></div>
         <div><label className="label">Preço (curso pago)</label><input name="price" defaultValue={c?.price ? Number(c.price).toFixed(2).replace(".", ",") : ""} inputMode="decimal" className="input" placeholder="Ex.: 97,00" /></div>
         <div><label className="label">Ordem</label><input name="sortOrder" type="number" defaultValue={c?.sortOrder ?? 0} className="input" /></div>
       </div>

@@ -26,7 +26,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     { href: "/painel/marca", label: "Minha marca", icon: <IconPalette /> },
     { href: "/painel/dimensionamento", label: "Calculadora de circuitos", icon: <IconBolt /> },
     { href: "/painel/guia", label: "Guia de problemas", icon: <IconWrench /> },
-    { href: "/painel/aulas", label: "Videoaulas", icon: <IconPlay /> },
+    { href: "/painel/aulas", label: "Videoaulas", icon: <IconPlay />, locked: !hasFeature(access, "courses") },
     { href: "/painel/financeiro", label: "Financeiro", icon: <IconMoney />, locked: !hasFeature(access, "finance") },
     { href: "/painel/relatorios", label: "Relatórios", icon: <IconChart />, locked: !hasFeature(access, "reports") },
     { href: "/painel/assinatura", label: "Assinatura", icon: <IconCard /> },

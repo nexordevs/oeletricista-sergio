@@ -40,8 +40,13 @@ const login = async (b, email, pass, w = 1280) => { const p = await (await b.new
   // SEM PLANO
   const n = await (await b.newContext()).newPage();
   await n.goto(B + '/cadastro'); await n.fill('#name', 'Sem Plano'); await n.fill('#email', `sp${t}@teste.local`); await n.fill('#password', 'Senha12345'); await n.check('input[name=terms]'); await n.click('button[type=submit]'); await n.waitForURL(/painel/);
-  await n.goto(B + `/painel/aulas/teste-qdc-${t}`); ok(await n.isVisible('text=exclusivo para assinantes') && (await n.locator('iframe').count()) === 0, 'sem plano: curso de assinantes bloqueado, sem vídeo');
+  await n.goto(B + `/painel/aulas/teste-qdc-${t}`); ok(await n.isVisible('text=plano Premium') && (await n.locator('iframe').count()) === 0, 'sem plano: curso Premium bloqueado, sem vídeo');
   await n.goto(B + `/painel/aulas/teste-gratis-${t}`); ok((await n.locator('iframe').count()) === 1, 'sem plano: curso grátis liberado');
+  // PROFISSIONAL (assinante sem videoaulas)
+  const pid = sql(`select id from "User" where email='sp${t}@teste.local'`), prof = sql(`select id from "Plan" where slug='profissional'`);
+  sql(`insert into "Subscription"(id,"userId","planId",amount,status,"currentPeriodEnd","updatedAt") values ('pr${t}','${pid}','${prof}',34.90,'ACTIVE',now()+interval '30 day',now())`);
+  await n.goto(B + `/painel/aulas/teste-qdc-${t}`); ok(await n.isVisible('text=plano Premium') && (await n.locator('iframe').count()) === 0, 'plano Profissional: curso Premium bloqueado com convite');
+  await n.goto(B + `/painel/aulas/teste-gratis-${t}`); ok((await n.locator('iframe').count()) === 1, 'plano Profissional: curso grátis liberado');
   // rascunho invisível para eletricista
   sql(`update "Course" set published=false where id='${cid}'`);
   const r = await sub.goto(B + `/painel/aulas/teste-qdc-${t}`); ok(r.status() === 404, 'curso em rascunho não aparece para eletricista (404)');

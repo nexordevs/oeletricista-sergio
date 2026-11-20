@@ -55,7 +55,7 @@ export async function savePlan(_: ActionState, fd: FormData): Promise<ActionStat
   const { id, quoteLimit, ...d } = p.data;
   const lim = quoteLimit ? Number(quoteLimit) : null;
   if (lim != null && (!Number.isInteger(lim) || lim < 1)) return { error: "Confira os campos.", fields: { quoteLimit: "Número inteiro ou vazio (ilimitado)" } };
-  const data = { ...d, quoteLimit: lim, featBrandFull: bool(fd, "featBrandFull"), featClientHistory: bool(fd, "featClientHistory"), featStatus: bool(fd, "featStatus"), featWhatsapp: bool(fd, "featWhatsapp"), featFinance: bool(fd, "featFinance"), featReports: bool(fd, "featReports"), highlight: bool(fd, "highlight"), active: bool(fd, "active") };
+  const data = { ...d, quoteLimit: lim, featBrandFull: bool(fd, "featBrandFull"), featClientHistory: bool(fd, "featClientHistory"), featStatus: bool(fd, "featStatus"), featWhatsapp: bool(fd, "featWhatsapp"), featFinance: bool(fd, "featFinance"), featReports: bool(fd, "featReports"), featCourses: bool(fd, "featCourses"), highlight: bool(fd, "highlight"), active: bool(fd, "active") };
   const dup = await prisma.plan.findFirst({ where: { slug: d.slug, NOT: id ? { id } : undefined } });
   if (dup) return { error: "Confira os campos.", fields: { slug: "Identificador já usado" } };
   if (id) await prisma.plan.update({ where: { id }, data }); else await prisma.plan.create({ data });

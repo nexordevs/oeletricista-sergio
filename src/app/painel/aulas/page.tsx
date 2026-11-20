@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { panelContext } from "@/lib/panel";
+import { hasFeature } from "@/lib/access";
 import { ACCESS_LABEL, canWatch } from "@/lib/aulas";
 import { IconPlay, IconLock } from "@/components/icons";
 
@@ -13,7 +14,7 @@ export default async function Aulas() {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {courses.map((c) => {
-        const can = canWatch(c.access, { isAdmin, activePlan: access.active });
+        const can = canWatch(c.access, { isAdmin, hasCourses: hasFeature(access, "courses") });
         const total = c.lessons.length, feitas = c.lessons.filter((l) => done.has(l.id)).length;
         const min = c.lessons.reduce((a, l) => a + (l.durationMin || 0), 0);
         return (

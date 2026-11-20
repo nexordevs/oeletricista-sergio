@@ -15,9 +15,9 @@ test("links de outros sites, http ou malformados são recusados", () => {
   for (const u of ["http://youtube.com/watch?v=dQw4w9WgXcQ", "https://evil.com/embed/x", "javascript:alert(1)", "https://youtube.com.evil.com/watch?v=dQw4w9WgXcQ", "https://www.youtube.com/watch?v=<script>", "nada"]) assert.equal(embedUrl(u), null, u);
 });
 test("regras de acesso aos cursos", () => {
-  assert.equal(canWatch("FREE", { isAdmin: false, activePlan: false }), true);
-  assert.equal(canWatch("SUBSCRIBERS", { isAdmin: false, activePlan: false }), false);
-  assert.equal(canWatch("SUBSCRIBERS", { isAdmin: false, activePlan: true }), true);
-  assert.equal(canWatch("PAID", { isAdmin: false, activePlan: true }), false);
-  assert.equal(canWatch("PAID", { isAdmin: true, activePlan: false }), true);
+  assert.equal(canWatch("FREE", { isAdmin: false, hasCourses: false }), true);
+  assert.equal(canWatch("SUBSCRIBERS", { isAdmin: false, hasCourses: false }), false); // ex.: plano Inicial/Profissional
+  assert.equal(canWatch("SUBSCRIBERS", { isAdmin: false, hasCourses: true }), true); // Premium
+  assert.equal(canWatch("PAID", { isAdmin: false, hasCourses: true }), false);
+  assert.equal(canWatch("PAID", { isAdmin: true, hasCourses: false }), true);
 });

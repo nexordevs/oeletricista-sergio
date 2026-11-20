@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 const plans = [
   { slug: "inicial", name: "Inicial", description: "Para começar a enviar orçamentos profissionais.", priceMonthly: 19.9, priceYearly: 199, quoteLimit: 30, sortOrder: 1 },
   { slug: "profissional", name: "Profissional", description: "Para quem orça todo dia e quer acompanhar cada cliente.", priceMonthly: 34.9, priceYearly: 349, quoteLimit: null, featBrandFull: true, featClientHistory: true, featStatus: true, featWhatsapp: true, highlight: true, sortOrder: 2 },
-  { slug: "premium", name: "Premium", description: "Gestão completa: financeiro, relatórios e indicadores.", priceMonthly: 49.9, priceYearly: 499, quoteLimit: null, featBrandFull: true, featClientHistory: true, featStatus: true, featWhatsapp: true, featFinance: true, featReports: true, sortOrder: 3 },
+  { slug: "premium", name: "Premium", description: "Gestão completa: financeiro, relatórios e indicadores.", priceMonthly: 49.9, priceYearly: 499, quoteLimit: null, featBrandFull: true, featClientHistory: true, featStatus: true, featWhatsapp: true, featFinance: true, featReports: true, featCourses: true, sortOrder: 3 },
 ];
 
 

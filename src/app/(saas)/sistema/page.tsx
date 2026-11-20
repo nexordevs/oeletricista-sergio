@@ -26,6 +26,7 @@ const rows: [string, (p: import("@prisma/client").Plan) => boolean | string][] =
   ["Envio pelo WhatsApp com link", (p) => p.featWhatsapp],
   ["Controle financeiro", (p) => p.featFinance],
   ["Relatórios e indicadores", (p) => p.featReports],
+  ["Videoaulas (em andamento)", (p) => p.featCourses],
 ];
 
 export default async function Sistema() {

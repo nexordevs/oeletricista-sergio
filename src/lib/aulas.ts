@@ -27,12 +27,12 @@ export function embedUrl(raw: string): string | null {
   return null;
 }
 
-export const ACCESS_LABEL: Record<CourseAccess, string> = { FREE: "Grátis", SUBSCRIBERS: "Assinantes", PAID: "Curso pago" };
+export const ACCESS_LABEL: Record<CourseAccess, string> = { FREE: "Grátis", SUBSCRIBERS: "Plano Premium", PAID: "Curso pago" };
 
-/** Quem pode assistir: grátis = qualquer cadastrado; assinantes = plano ativo; pago = ainda não vendido (só admin). */
-export function canWatch(access: CourseAccess, opts: { isAdmin: boolean; activePlan: boolean }) {
+/** Quem pode assistir: grátis = qualquer cadastrado; assinantes = plano com videoaulas (Premium); pago = ainda não vendido (só admin). */
+export function canWatch(access: CourseAccess, opts: { isAdmin: boolean; hasCourses: boolean }) {
   if (opts.isAdmin) return true;
   if (access === "FREE") return true;
-  if (access === "SUBSCRIBERS") return opts.activePlan;
+  if (access === "SUBSCRIBERS") return opts.hasCourses;
   return false;
 }

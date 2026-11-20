@@ -5,7 +5,7 @@ import { Submit } from "@/components/ui";
 import { savePlan } from "../actions";
 import type { Plan } from "@prisma/client";
 
-const feats: [keyof Plan, string][] = [["featBrandFull", "Cores e assinatura no PDF"], ["featClientHistory", "Histórico por cliente"], ["featStatus", "Controle de status"], ["featWhatsapp", "Envio por WhatsApp"], ["featFinance", "Financeiro"], ["featReports", "Relatórios"], ["highlight", "Destacar como mais escolhido"], ["active", "Plano ativo (visível para contratar)"]];
+const feats: [keyof Plan, string][] = [["featBrandFull", "Cores e assinatura no PDF"], ["featClientHistory", "Histórico por cliente"], ["featStatus", "Controle de status"], ["featWhatsapp", "Envio por WhatsApp"], ["featFinance", "Financeiro"], ["featReports", "Relatórios"], ["featCourses", "Videoaulas"], ["highlight", "Destacar como mais escolhido"], ["active", "Plano ativo (visível para contratar)"]];
 const n = (v: unknown) => Number(v).toFixed(2).replace(".", ",");
 
 function PlanForm({ p }: { p?: Plan }) {

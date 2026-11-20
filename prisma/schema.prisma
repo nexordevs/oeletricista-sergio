@@ -269,6 +269,7 @@ model Plan {
   featWhatsapp     Boolean        @default(false)
   featFinance      Boolean        @default(false)
   featReports      Boolean        @default(false)
+  featCourses      Boolean        @default(false) // videoaulas para assinantes
   highlight        Boolean        @default(false)
   active           Boolean        @default(true)
   sortOrder        Int            @default(0)

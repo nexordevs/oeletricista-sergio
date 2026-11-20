@@ -11,6 +11,7 @@ export function planFeatures(p: Plan) {
   if (p.featWhatsapp) f.push("Envio por WhatsApp com link");
   if (p.featFinance) f.push("Controle financeiro");
   if (p.featReports) f.push("Relatórios e indicadores");
+  if (p.featCourses) f.push("Videoaulas para eletricistas (em andamento)");
   return f;
 }
 

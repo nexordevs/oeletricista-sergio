@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { panelContext } from "@/lib/panel";
 import { brl } from "@/lib/money";
+import { hasFeature } from "@/lib/access";
 import { canWatch, embedUrl, ACCESS_LABEL } from "@/lib/aulas";
 import { toggleLesson } from "../actions";
 import { IconCheck, IconLock, IconPlay } from "@/components/icons";
@@ -13,14 +14,14 @@ export default async function Curso({ params, searchParams }: { params: Promise<
   const isAdmin = user.role === "ADMIN";
   const c = await prisma.course.findUnique({ where: { slug }, include: { lessons: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } } });
   if (!c || (!c.published && !isAdmin)) notFound();
-  if (!canWatch(c.access, { isAdmin, activePlan: access.active })) {
+  if (!canWatch(c.access, { isAdmin, hasCourses: hasFeature(access, "courses") })) {
     return (
       <div className="card mx-auto max-w-lg text-center">
         <IconLock className="mx-auto h-10 w-10 text-muted" />
         <p className="mt-3 text-xl font-bold text-navy">{c.title}</p>
         <p className="mt-1 text-muted">{c.lessons.length} aula(s) · {ACCESS_LABEL[c.access]}</p>
         {c.access === "SUBSCRIBERS"
-          ? <><p className="mt-3 text-muted">Este curso é exclusivo para assinantes.</p><Link href="/painel/assinatura" className="btn-primary mt-5">Ver planos</Link></>
+          ? <><p className="mt-3 text-muted">As videoaulas fazem parte do plano Premium.</p><Link href="/painel/assinatura?plano=premium" className="btn-primary mt-5">Conhecer o Premium</Link></>
           : <p className="mt-3 font-bold text-navy">Este curso será vendido em breve{c.price ? ` por ${brl(c.price)}` : ""}. Fique de olho!</p>}
       </div>
     );
