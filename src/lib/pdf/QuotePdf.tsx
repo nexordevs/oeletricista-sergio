@@ -129,7 +129,7 @@ export function QuotePdf({ brand, quote }: PdfData) {
           {quote.notes && (
             <View wrap={false}>
               <Text style={s.sectionTitle}>Observações</Text><View style={s.bar} />
-              <Text style={{ lineHeight: 1.4 }}>{quote.notes}</Text>
+              <Text style={{ lineHeight: 1.4 }}>{quote.notes.replace(/\r/g, "")}</Text>
             </View>
           )}
 

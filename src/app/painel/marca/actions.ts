@@ -43,5 +43,5 @@ export async function saveBrand(_: ActionState, fd: FormData): Promise<ActionSta
   }
   await prisma.brand.upsert({ where: { userId: user.id }, update: data, create: { ...(data as { professionalName: string }), userId: user.id } });
   revalidatePath("/painel/marca");
-  return { ok: true, message: "Marca salva! Ela já aparece nos próximos PDFs." };
+  return { ok: true, message: "Marca salva! Os próximos orçamentos já saem com esses dados. Num orçamento já criado, abra em Editar e toque em “Usar observações padrão”." };
 }

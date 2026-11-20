@@ -12,7 +12,8 @@ export function parseForm<T extends z.ZodTypeAny>(schema: T, fd: FormData): Pars
   for (const i of r.error.issues) fields[String(i.path[0])] ??= i.code === "invalid_type" && i.input === undefined ? "Campo obrigatório" : i.message;
   return { ok: false, error: { error: "Confira os campos destacados.", fields } };
 }
-export const zText = (min = 1, max = 200, msg = "Campo obrigatório") => z.string().min(min, msg).max(max, `Máximo de ${max} caracteres`);
-export const zOpt = (max = 300) => z.string().max(max).optional().transform((v) => (v ? v : null));
+const nl = (v: string) => v.replace(/\r\n?/g, "\n");
+export const zText = (min = 1, max = 200, msg = "Campo obrigatório") => z.string().transform(nl).pipe(z.string().min(min, msg).max(max, `Máximo de ${max} caracteres`));
+export const zOpt = (max = 300) => z.string().transform(nl).pipe(z.string().max(max, `Máximo de ${max} caracteres`)).optional().transform((v) => (v ? v : null));
 export const zPhone = z.string().transform((v) => v.replace(/\D/g, "")).refine((v) => v.length >= 10 && v.length <= 13, "Telefone inválido (inclua o DDD)");
 export const zMoney = z.string().transform((v) => Number(v.replace(/\s|R\$/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", "."))).refine((n) => Number.isFinite(n) && n >= 0 && n < 1e8, "Valor inválido");

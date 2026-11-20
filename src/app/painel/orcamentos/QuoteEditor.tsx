@@ -22,7 +22,7 @@ const fmt = (n: number) => n.toFixed(2).replace(".", ",");
 let seq = 0; const k = () => `i${++seq}`;
 const KIND_LABEL: Record<Kind, string> = { SERVICE: "Serviço", MATERIAL: "Material", LABOR: "Mão de obra" };
 
-export function QuoteEditor({ initial, services, clients, blocked }: { initial: EditorInitial; services: Svc[]; clients: Cli[]; blocked?: string }) {
+export function QuoteEditor({ initial, services, clients, blocked, defaultNotes }: { initial: EditorInitial; services: Svc[]; clients: Cli[]; blocked?: string; defaultNotes?: string | null }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +141,7 @@ export function QuoteEditor({ initial, services, clients, blocked }: { initial: 
           <div className="sm:col-span-2"><label className="label" htmlFor="pt">Condições de pagamento</label><input id="pt" className="input" value={v.paymentTerms} onChange={(e) => set("paymentTerms", e.target.value)} /></div>
           <div><label className="label" htmlFor="vd">Validade (dias)</label><input id="vd" type="number" min={1} max={180} className="input" value={v.validityDays} onChange={(e) => set("validityDays", e.target.value)} /></div>
           <div className="sm:col-span-3"><label className="label" htmlFor="ex">Prazo de execução</label><input id="ex" className="input" value={v.executionTime} onChange={(e) => set("executionTime", e.target.value)} /></div>
-          <div className="sm:col-span-3"><label className="label" htmlFor="nt">Observações</label><textarea id="nt" rows={3} className="input" value={v.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Ex.: Não incluso acabamento do piso." /></div>
+          <div className="sm:col-span-3"><div className="flex items-end justify-between gap-2"><label className="label" htmlFor="nt">Observações</label>{defaultNotes && v.notes.trim() !== defaultNotes.trim() && <button type="button" className="mb-1 text-xs font-bold text-navy underline" onClick={() => set("notes", defaultNotes)}>Usar observações padrão</button>}</div><textarea id="nt" rows={3} className="input" value={v.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Ex.: Não incluso acabamento do piso." /></div>
         </div>
       </section>
 
