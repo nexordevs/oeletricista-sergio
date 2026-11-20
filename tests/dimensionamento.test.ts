@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dimensionar, type Entrada } from "../src/lib/eletrica/dimensionamento";
+import { dimensionar, PRESETS, type Entrada } from "../src/lib/eletrica/dimensionamento";
 
 const base: Entrada = { potenciaW: 7500, tensao: 220, sistema: "mono", fp: 1, comprimentoM: 10, metodo: "B1", temperatura: 30, circuitosAgrupados: 1, quedaMax: 4, tipo: "dedicado", areaMolhada: true };
 
@@ -39,4 +39,13 @@ test("terra conforme Tabela 58: até 16 mm² igual à fase; 25–35 mm² → 16 
   assert.equal(a.secao, 25); assert.equal(a.terra, 16);
   const b = dimensionar({ ...base, potenciaW: 26000, circuitosAgrupados: 2 }); // 118 A → 125 A; fator 0,8 → 70 mm²
   assert.equal(b.secao, 70); assert.equal(b.terra, 35);
+});
+
+test("todos os aparelhos da lista geram um dimensionamento válido (220 V ou o sistema do aparelho, 15 m)", () => {
+  assert.ok(PRESETS.length >= 60, `lista com ${PRESETS.length} itens`);
+  for (const p of PRESETS) {
+    const r = dimensionar({ ...base, potenciaW: p.w, fp: p.fp, tipo: p.tipo, areaMolhada: Boolean(p.molhada), sistema: p.sistema ?? "mono", tensao: p.tensao ?? 220, comprimentoM: 15 });
+    assert.ok(r.disjuntor && r.secao && r.secao >= r.minimoNorma, `${p.nome}: ${JSON.stringify(r)}`);
+    assert.ok(r.disjuntor! >= r.ib && r.iz! >= r.disjuntor!, `${p.nome}: Ib ≤ In ≤ Iz`);
+  }
 });

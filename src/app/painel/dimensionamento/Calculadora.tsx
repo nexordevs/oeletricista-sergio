@@ -13,15 +13,20 @@ export function Calculadora() {
   const entrada: Entrada = { potenciaW: num(f.potencia), tensao: num(f.tensao), sistema: f.sistema, fp: num(f.fp) || 1, comprimentoM: num(f.comprimento), metodo: f.metodo, temperatura: num(f.temperatura), circuitosAgrupados: num(f.agrupados) || 1, quedaMax: num(f.queda) || 4, tipo: f.tipo, areaMolhada: f.molhada };
   const ok = entrada.potenciaW > 0 && entrada.tensao > 0 && entrada.comprimentoM > 0;
   const r = useMemo(() => (ok ? dimensionar(entrada) : null), [JSON.stringify(entrada), ok]); // eslint-disable-line react-hooks/exhaustive-deps
-  const preset = (i: string) => { const p = PRESETS[Number(i)]; if (p) setF((x) => ({ ...x, potencia: String(p.w), fp: String(p.fp), tipo: p.tipo, molhada: Boolean(p.molhada) })); };
+  const preset = (i: string) => {
+    const p = PRESETS[Number(i)];
+    if (p) setF((x) => ({ ...x, potencia: String(p.w), fp: String(p.fp), tipo: p.tipo, molhada: Boolean(p.molhada),
+      sistema: p.sistema ?? (x.sistema === "tri" ? "mono" : x.sistema), tensao: p.tensao ? String(p.tensao) : x.tensao === "380" ? "220" : x.tensao }));
+  };
+  const grupos = [...new Set(PRESETS.map((p) => p.grupo))];
   const L = "label", I = "input";
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
       <section className="card space-y-4">
         <div><label className={L} htmlFor="preset">Aparelho comum (preenche os campos)</label>
-          <select id="preset" className={I} defaultValue="" onChange={(e) => preset(e.target.value)}><option value="">Escolha… (ou preencha abaixo)</option>{PRESETS.map((p, i) => <option key={p.nome} value={i}>{p.nome}</option>)}</select>
-          <p className="mt-1 text-xs text-muted">Potências típicas: use sempre a da placa do equipamento.</p></div>
+          <select id="preset" className={I} defaultValue="" onChange={(e) => preset(e.target.value)}><option value="">Escolha… (ou preencha abaixo)</option>{grupos.map((g) => <optgroup key={g} label={g}>{PRESETS.map((p, i) => (p.grupo === g ? <option key={p.nome} value={i}>{p.nome}</option> : null))}</optgroup>)}</select>
+          <p className="mt-1 text-xs text-muted">{PRESETS.length} aparelhos e circuitos com potências típicas. Use sempre a da placa do equipamento ou do projeto.</p></div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div><label className={L} htmlFor="pot">Potência (W)</label><input id="pot" className={I} inputMode="decimal" value={f.potencia} onChange={(e) => set("potencia", e.target.value)} /></div>
           <div><label className={L} htmlFor="ten">Tensão (V)</label><select id="ten" className={I} value={f.tensao} onChange={(e) => set("tensao", e.target.value)}>{["127", "220", "380"].map((v) => <option key={v}>{v}</option>)}</select></div>
