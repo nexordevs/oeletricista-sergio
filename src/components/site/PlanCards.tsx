@@ -4,7 +4,7 @@ import { brl } from "@/lib/money";
 import { IconCheck } from "@/components/icons";
 
 export function planFeatures(p: Plan) {
-  const f = [p.quoteLimit == null ? "Orçamentos ilimitados" : `Até ${p.quoteLimit} orçamentos por mês`, "Cadastro de clientes", "Catálogo de serviços e tabela de preços", "PDF com sua logomarca"];
+  const f = [p.quoteLimit == null ? "Orçamentos ilimitados" : `Até ${p.quoteLimit} orçamentos por mês`, "Cadastro de clientes", "Catálogo de serviços e tabela de preços", "PDF com sua logomarca", "Calculadora de circuitos (NBR 5410)", "Guia de solução de problemas"];
   if (p.featBrandFull) f.push("Personalização completa (cores e assinatura)");
   if (p.featClientHistory) f.push("Histórico por cliente");
   if (p.featStatus) f.push("Controle de status (aprovado, recusado…)");

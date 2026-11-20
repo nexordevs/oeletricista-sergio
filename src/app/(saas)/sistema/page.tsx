@@ -18,6 +18,8 @@ const rows: [string, (p: import("@prisma/client").Plan) => boolean | string][] =
   ["PDF com sua logomarca", () => true],
   ["Cadastro de clientes", () => true],
   ["Catálogo e tabela de preços própria", () => true],
+  ["Calculadora de circuitos (NBR 5410)", () => true],
+  ["Guia de solução de problemas", () => true],
   ["Cores e assinatura no PDF", (p) => p.featBrandFull],
   ["Histórico por cliente", (p) => p.featClientHistory],
   ["Status dos orçamentos", (p) => p.featStatus],
@@ -59,7 +61,7 @@ export default async function Sistema() {
             <div key={t as string} className="card"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-navy"><Ic /></span><p className="mt-4 font-bold text-navy">{t as string}</p><p className="mt-1 text-sm text-muted">{d as string}</p></div>); })}
         </div>
         <div className="mt-10 grid gap-3 sm:grid-cols-2">
-          {["Feito para eletricista autônomo: telas simples, letras grandes, funciona no celular.", "Sua tabela de preços é só sua: comece com os preços sugeridos e ajuste do seu jeito.", "O cliente vê só a sua marca — nada de propaganda do sistema no PDF.", "Pagamento seguro pelo Mercado Pago, cancele quando quiser."].map((b) => (
+          {["Feito para eletricista autônomo: telas simples, letras grandes, funciona no celular.", "Sua tabela de preços é só sua: comece com os preços sugeridos e ajuste do seu jeito.", "O cliente vê só a sua marca — nada de propaganda do sistema no PDF.", "Calculadora de dimensionamento de circuitos (NBR 5410) e guia de solução de problemas.", "Pagamento seguro pelo Mercado Pago, cancele quando quiser."].map((b) => (
             <p key={b} className="flex gap-2 text-[15px]"><IconCheck className="mt-0.5 h-5 w-5 shrink-0 text-brand-dark" />{b}</p>
           ))}
         </div>
