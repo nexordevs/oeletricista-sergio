@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { importPriceTable } from "../src/lib/price-import";
+import { importPriceTable, importMaterialTable } from "../src/lib/price-import";
 import { provisionServices } from "../src/lib/provision";
 import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
@@ -65,6 +65,11 @@ async function syncAdmin() {
 async function main() {
   for (const p of plans) await prisma.plan.upsert({ where: { slug: p.slug }, update: {}, create: p });
   if ((await prisma.serviceTemplate.count({ where: { minPrice: { not: null } } })) === 0) console.log(await importPriceTable(prisma));
+  // Materiais: na primeira vez, cria a biblioteca e coloca na tabela de todos os eletricistas já cadastrados.
+  if ((await prisma.serviceTemplate.count({ where: { kind: "MATERIAL" } })) === 0) {
+    console.log("Materiais:", await importMaterialTable(prisma));
+    for (const u of await prisma.user.findMany({ select: { id: true } })) await provisionServices(u.id, "MATERIAL");
+  }
   for (const [i, s] of services.entries())
     await prisma.portfolioService.upsert({ where: { slug: s[0] }, update: {}, create: { slug: s[0], title: s[1], summary: s[2], body: s[3], seoTitle: s[4], seoDescription: s[5], published: true, sortOrder: i } });
   // Bairros e cidades atendidos (editáveis em /admin/site)

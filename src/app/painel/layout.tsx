@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 const titles: [string, string][] = [
   ["/painel/orcamentos/novo", "Novo orçamento"], ["/painel/orcamentos", "Orçamentos"], ["/painel/clientes", "Clientes"],
-  ["/painel/servicos", "Meus serviços e preços"], ["/painel/marca", "Minha marca"], ["/painel/financeiro", "Financeiro"],
+  ["/painel/servicos", "Serviços e materiais"], ["/painel/marca", "Minha marca"], ["/painel/financeiro", "Financeiro"],
   ["/painel/relatorios", "Relatórios"], ["/painel/dimensionamento", "Calculadora de circuitos (NBR 5410)"], ["/painel/guia", "Guia de solução de problemas"], ["/painel/aulas", "Videoaulas"], ["/painel/assinatura", "Minha assinatura"], ["/painel/conta", "Minha conta"], ["/painel", "Início"],
 ];
 
@@ -22,7 +22,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     { href: "/painel/orcamentos/novo", label: "Novo orçamento", icon: <IconPlus />, exact: true },
     { href: "/painel/orcamentos", label: "Orçamentos", icon: <IconFile /> },
     { href: "/painel/clientes", label: "Clientes", icon: <IconUsers /> },
-    { href: "/painel/servicos", label: "Serviços e preços", icon: <IconList /> },
+    { href: "/painel/servicos", label: "Serviços e materiais", icon: <IconList /> },
     { href: "/painel/marca", label: "Minha marca", icon: <IconPalette /> },
     { href: "/painel/dimensionamento", label: "Calculadora de circuitos", icon: <IconBolt /> },
     { href: "/painel/guia", label: "Guia de problemas", icon: <IconWrench /> },

@@ -14,7 +14,8 @@ async function makeQuote(p, client, beforeClick) {
   await p.goto(B + '/painel/orcamentos/novo'); await p.waitForLoadState('networkidle');
   const sel = p.locator('select[aria-label="Escolher cliente"]'); if (await sel.count()) await sel.selectOption('__new');
   await p.fill('input[aria-label="Nome do cliente"]', client);
-  await p.click('text=Serviço da tabela'); await p.click('button:has-text("Substituição de disjuntor monofásico")');
+  await p.click('button:text-is("Serviço")'); await p.click('button:has-text("Substituição de disjuntor monofásico")');
+  await p.click('button:text-is("Material")'); await p.fill('input[placeholder^="Buscar material"]', 'cabo 2,5 750'); await p.click('[role=dialog] button:has-text("Cabo flexível 2,5 mm² 750 V")');
   if (beforeClick) beforeClick();
   await p.click('button:has-text("Finalizar orçamento")');
   await Promise.race([p.waitForURL(/salvo=1/, { timeout: 15000 }), p.waitForSelector('[role=alert].rounded-xl', { timeout: 15000 })]).catch(() => {});
@@ -98,6 +99,10 @@ async function makeQuote(p, client, beforeClick) {
   ok(await cl.isVisible('text=não está mais disponível'), 'cliente abrindo o link depois do prazo vê que a proposta não está disponível');
   sql(`delete from "Quote" where id in ('old${t}','new${t}')`);
 
+  // Catálogo de materiais: item escolhido na aba Materiais entra como MATERIAL
+  ok(sql(`select string_agg(kind::text, ',' order by kind) from "QuoteItem" where "quoteId"='${qid}'`) === 'SERVICE,MATERIAL' || sql(`select string_agg(kind::text, ',' order by kind) from "QuoteItem" where "quoteId"='${qid}'`) === 'MATERIAL,SERVICE', 'orçamento tem um serviço e um material da tabela');
+  ok(Number(sql(`select count(*) from "UserService" where "userId"='${aId}' and kind='MATERIAL'`)) > 100, 'novo eletricista já recebe a tabela de materiais');
+
   // PDF com observações em várias linhas e emojis (antes dava erro "unitsPerEm")
   sql(`update "Quote" set notes=E'• Garantia de 90 dias.\\r\\n• Materiais não inclusos 👍\\n\\n• NBR 5410 ⚡️' where id='${qid}'`);
   for (const u of [`/painel/orcamentos/${qid}/pdf`, `/o/${sql(`select "shareToken" from "Quote" where id='${qid}'`)}/pdf`]) {
@@ -157,7 +162,7 @@ async function makeQuote(p, client, beforeClick) {
   await A.goto(B + '/painel'); await A.screenshot({ path: S + 'painel.png', fullPage: true });
   const m = await (await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 })).newPage();
   await m.goto(B + '/entrar'); await m.fill('#email', `a${t}@teste.local`); await m.fill('#password', 'Senha12345'); await m.click('button[type=submit]'); await m.waitForURL(/painel/);
-  await m.goto(B + '/painel/orcamentos/novo'); await m.click('text=Serviço da tabela'); await m.click('button:has-text("Instalação de chuveiro")');
+  await m.goto(B + '/painel/orcamentos/novo'); await m.click('button:text-is("Serviço")'); await m.click('button:has-text("Instalação de chuveiro")');
   await m.screenshot({ path: S + 'editor-m.png' });
   sql(`delete from "Quote" where id='dq${t}'`);
   console.log(fails ? `\n${fails} FALHA(S)` : '\nTODOS OS TESTES PASSARAM'); await b.close();

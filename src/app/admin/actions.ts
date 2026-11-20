@@ -66,7 +66,7 @@ export async function savePlan(_: ActionState, fd: FormData): Promise<ActionStat
 
 // ---------- Biblioteca de serviços ----------
 const zOptMoney = z.string().optional().transform((v) => (v ? Number(v.replace(/\s|R\$/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) : null)).refine((n) => n == null || (Number.isFinite(n) && n >= 0), "Valor inválido");
-const tplSchema = z.object({ id: z.string().optional(), name: zText(2, 120), description: zOpt(300), unit: zText(1, 20), suggestedPrice: zMoney, minPrice: zOptMoney, maxPrice: zOptMoney, category: zText(2, 60) });
+const tplSchema = z.object({ id: z.string().optional(), name: zText(2, 120), description: zOpt(300), unit: zText(1, 20), suggestedPrice: zMoney, minPrice: zOptMoney, maxPrice: zOptMoney, category: zText(2, 60), kind: z.enum(["SERVICE", "MATERIAL"]).default("SERVICE") });
 export async function saveTemplate(_: ActionState, fd: FormData): Promise<ActionState> {
   const a = await requireAdmin();
   const p = parseForm(tplSchema, fd);

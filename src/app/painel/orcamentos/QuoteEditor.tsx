@@ -9,7 +9,7 @@ import { IconPlus, IconTrash, IconX } from "@/components/icons";
 
 type Kind = "SERVICE" | "MATERIAL" | "LABOR";
 type Item = { key: string; kind: Kind; description: string; unit: string; quantity: string; unitPrice: string };
-type Svc = { id: string; name: string; unit: string; price: number; category: string };
+type Svc = { id: string; name: string; unit: string; price: number; category: string; kind: Kind };
 type Cli = { id: string; name: string; phone: string | null; address: string | null };
 export type EditorInitial = {
   id?: string; clientId: string | null; clientName: string; clientPhone: string; clientAddress: string; title: string;
@@ -31,7 +31,7 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes 
   const [newClient, setNewClient] = useState(!initial.clientId && !initial.clientName && clients.length === 0);
   const [saveCli, setSaveCli] = useState(true);
   const [search, setSearch] = useState("");
-  const [picker, setPicker] = useState(false);
+  const [picker, setPicker] = useState<null | "SERVICE" | "MATERIAL">(null);
 
   const set = <K extends keyof EditorInitial>(key: K, val: EditorInitial[K]) => setV((p) => ({ ...p, [key]: val }));
   const totals = useMemo(() => calcQuote({
@@ -39,8 +39,10 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes 
     travelFee: parse(v.travelFee), discountType: v.discountType, discountValue: parse(v.discountValue),
   }), [items, v.travelFee, v.discountType, v.discountValue]);
 
-  const filtered = services.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()));
-  const addService = (s: Svc) => { setItems((p) => [...p, { key: k(), kind: "SERVICE", description: s.name, unit: s.unit, quantity: "1", unitPrice: fmt(s.price) }]); setPicker(false); setSearch(""); };
+  const norm = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const words = norm(search).split(/\s+/).filter(Boolean);
+  const filtered = services.filter((s) => (s.kind === "MATERIAL" ? "MATERIAL" : "SERVICE") === picker && words.every((w) => norm(`${s.name} ${s.category}`).includes(w)));
+  const addService = (s: Svc) => { setItems((p) => [...p, { key: k(), kind: s.kind === "MATERIAL" ? "MATERIAL" : "SERVICE", description: s.name, unit: s.unit, quantity: "1", unitPrice: fmt(s.price) }]); setPicker(null); setSearch(""); };
   const addBlank = (kind: Kind) => setItems((p) => [...p, { key: k(), kind, description: kind === "LABOR" ? "Mão de obra" : "", unit: kind === "LABOR" ? "serv" : "un", quantity: "1", unitPrice: "" }]);
   const upd = (key: string, f: Partial<Item>) => setItems((p) => p.map((i) => (i.key === key ? { ...i, ...f } : i)));
   const pickClient = (id: string) => {
@@ -116,10 +118,11 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes 
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <button type="button" onClick={() => setPicker(true)} className="btn-navy"><IconPlus /> Serviço da tabela</button>
-          <button type="button" onClick={() => addBlank("MATERIAL")} className="btn-outline"><IconPlus /> Material</button>
-          <button type="button" onClick={() => addBlank("LABOR")} className="btn-outline"><IconPlus /> Mão de obra</button>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setPicker("SERVICE")} className="btn-navy"><IconPlus /> Serviço</button>
+          <button type="button" onClick={() => setPicker("MATERIAL")} className="btn-navy"><IconPlus /> Material</button>
+          <button type="button" onClick={() => addBlank("MATERIAL")} className="btn-outline text-sm"><IconPlus /> Material avulso</button>
+          <button type="button" onClick={() => addBlank("LABOR")} className="btn-outline text-sm"><IconPlus /> Mão de obra</button>
         </div>
       </section>
 
@@ -159,16 +162,16 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes 
         </div>
       </div>
 
-      {/* SELETOR DE SERVIÇOS */}
+      {/* SELETOR DE SERVIÇOS / MATERIAIS */}
       {picker && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog" aria-modal="true" aria-label="Escolher serviço">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog" aria-modal="true" aria-label={picker === "MATERIAL" ? "Escolher material" : "Escolher serviço"}>
           <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-2xl bg-white sm:rounded-2xl">
             <div className="flex items-center gap-2 border-b border-line p-4">
-              <input autoFocus className="input" placeholder="Buscar serviço…" value={search} onChange={(e) => setSearch(e.target.value)} />
-              <button onClick={() => setPicker(false)} className="p-2" aria-label="Fechar"><IconX /></button>
+              <input autoFocus className="input" placeholder={picker === "MATERIAL" ? "Buscar material… (ex.: disjuntor, cabo 2,5)" : "Buscar serviço…"} value={search} onChange={(e) => setSearch(e.target.value)} />
+              <button onClick={() => setPicker(null)} className="p-2" aria-label="Fechar"><IconX /></button>
             </div>
             <ul className="flex-1 overflow-y-auto">
-              {filtered.length === 0 && <li className="p-6 text-center text-muted">Nenhum serviço encontrado. <Link href="/painel/servicos" className="font-bold underline">Cadastrar serviços</Link></li>}
+              {filtered.length === 0 && <li className="p-6 text-center text-muted">Nada encontrado. <Link href={`/painel/servicos${picker === "MATERIAL" ? "?tipo=material" : ""}`} className="font-bold underline">Cadastrar na minha tabela</Link>{picker === "MATERIAL" && <> ou <button type="button" className="font-bold underline" onClick={() => { addBlank("MATERIAL"); setPicker(null); setSearch(""); }}>adicionar material avulso</button></>}</li>}
               {filtered.map((s) => (
                 <li key={s.id}><button type="button" onClick={() => addService(s)} className="flex w-full items-center justify-between gap-3 border-b border-line px-4 py-3 text-left hover:bg-light">
                   <span><b className="block text-navy">{s.name}</b><span className="text-xs text-muted">{s.category} · por {s.unit}</span></span><b className="shrink-0">{brl(s.price)}</b>

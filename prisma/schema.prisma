@@ -166,6 +166,7 @@ model ServiceTemplate {
   minPrice       Decimal?      @db.Decimal(10, 2) // faixa de mercado (referência)
   maxPrice       Decimal?      @db.Decimal(10, 2)
   category       String        @default("Geral")
+  kind           ItemKind      @default(SERVICE) // SERVICE = serviço (mão de obra) · MATERIAL = material
   active         Boolean       @default(true)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -184,11 +185,13 @@ model UserService {
   unit       String           @default("un")
   price      Decimal          @db.Decimal(10, 2)
   category   String           @default("Geral")
+  kind       ItemKind         @default(SERVICE)
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
 
   @@unique([userId, templateId])
   @@index([userId])
+  @@index([userId, kind])
 }
 
 model Quote {

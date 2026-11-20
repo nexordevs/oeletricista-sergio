@@ -6,21 +6,21 @@ import { requireUser } from "@/lib/auth";
 import { provisionServices } from "@/lib/provision";
 import { parseForm, zText, zMoney, zOpt, type ActionState } from "@/lib/form";
 
-const schema = z.object({ id: z.string().optional(), name: zText(2, 120, "Informe o nome"), unit: zText(1, 20, "Unidade"), price: zMoney, category: zOpt(60), description: zOpt(300) });
+const schema = z.object({ id: z.string().optional(), name: zText(2, 120, "Informe o nome"), unit: zText(1, 20, "Unidade"), price: zMoney, category: zOpt(60), description: zOpt(300), kind: z.enum(["SERVICE", "MATERIAL"]).default("SERVICE") });
 
 export async function saveService(_: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireUser();
   const p = parseForm(schema, fd);
   if (!p.ok) return p.error;
   const { id, category, ...d } = p.data;
-  const data = { ...d, category: category || "Meus serviços" };
+  const data = { ...d, category: category || (d.kind === "MATERIAL" ? "Meus materiais" : "Meus serviços") };
   if (id) {
     // where inclui userId: um eletricista nunca altera a tabela de outro
     const r = await prisma.userService.updateMany({ where: { id, userId: user.id }, data });
     if (!r.count) return { error: "Serviço não encontrado." };
   } else await prisma.userService.create({ data: { ...data, userId: user.id } });
   revalidatePath("/painel/servicos");
-  return { ok: true, message: id ? "Salvo" : "Serviço adicionado!" };
+  return { ok: true, message: id ? "Salvo" : d.kind === "MATERIAL" ? "Material adicionado!" : "Serviço adicionado!" };
 }
 
 export async function deleteService(fd: FormData) {
@@ -29,8 +29,8 @@ export async function deleteService(fd: FormData) {
   revalidatePath("/painel/servicos");
 }
 
-export async function importLibrary() {
+export async function importLibrary(fd: FormData) {
   const user = await requireUser();
-  await provisionServices(user.id);
+  await provisionServices(user.id, fd.get("kind") === "MATERIAL" ? "MATERIAL" : "SERVICE");
   revalidatePath("/painel/servicos");
 }
