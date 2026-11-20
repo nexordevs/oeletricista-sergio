@@ -1,4 +1,4 @@
-import { quoteSubject } from "@/lib/quote-title";
+import { quoteSubject, quoteSections, NO_MATERIAL } from "@/lib/quote-title";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -51,13 +51,20 @@ export default async function Detalhe(
           </dl>
         </section>
         <section className="card p-0">
-          <ul className="divide-y divide-line">
-            {q.items.map((i) => (
-              <li key={i.id} className="flex items-start justify-between gap-3 px-5 py-3">
-                <span><span className="block font-bold text-navy">{i.description}</span><span className="text-xs text-muted">{KIND[i.kind]} · {Number(i.quantity).toLocaleString("pt-BR")} {i.unit} × {brl(i.unitPrice)}</span></span><b>{brl(i.total)}</b>
-              </li>
-            ))}
-          </ul>
+          {quoteSections(q.items).map((g) => (
+            <div key={g.k}>
+              <p className="bg-light px-5 py-2 text-xs font-bold uppercase tracking-wide text-navy first:rounded-t-2xl">{g.title}</p>
+              {g.items.length === 0 ? <p className="px-5 py-3 text-sm font-bold text-muted">{g.k === "MATERIAL" ? NO_MATERIAL : "Nenhum serviço"}</p> : (
+                <ul className="divide-y divide-line">
+                  {g.items.map((i) => (
+                    <li key={i.id} className="flex items-start justify-between gap-3 px-5 py-3">
+                      <span><span className="block font-bold text-navy">{i.description}</span><span className="text-xs text-muted">{KIND[i.kind]} · {Number(i.quantity).toLocaleString("pt-BR")} {i.unit} × {brl(i.unitPrice)}</span></span><b>{brl(i.total)}</b>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
           <div className="space-y-1 border-t border-line px-5 py-4 text-sm">
             {toNum(q.travelFee) > 0 && <p className="flex justify-between"><span>Deslocamento</span><b>{brl(q.travelFee)}</b></p>}
             {discount > 0 && <p className="flex justify-between"><span>Desconto</span><b className="text-red-700">- {brl(discount)}</b></p>}

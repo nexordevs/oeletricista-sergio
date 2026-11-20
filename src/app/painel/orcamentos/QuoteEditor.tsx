@@ -74,6 +74,24 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes,
 
   const sectionCls = "card space-y-4";
   const num = "input py-2.5 text-right";
+  const itemList = (list: Item[], empty: string) => list.length === 0
+    ? <p className="rounded-xl bg-light p-4 text-center text-muted">{empty}</p>
+    : <div className="space-y-3">{list.map((i) => (
+        <div key={i.key} className="rounded-xl border border-line p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className={`badge ${i.kind === "SERVICE" ? "bg-navy text-white" : i.kind === "MATERIAL" ? "bg-light text-navy" : "bg-brand text-navy"}`}>{KIND_LABEL[i.kind]}</span>
+            <button type="button" onClick={() => setItems((p) => p.filter((x) => x.key !== i.key))} className="flex items-center gap-1 text-sm font-bold text-red-700" aria-label="Remover item"><IconTrash className="h-4 w-4" /> Remover</button>
+          </div>
+          <div className="grid grid-cols-6 gap-2">
+            <input className="input col-span-6 py-2.5 sm:col-span-3" placeholder="Descrição" value={i.description} onChange={(e) => upd(i.key, { description: e.target.value })} aria-label="Descrição" />
+            <input className={`${num} col-span-2 sm:col-span-1`} inputMode="decimal" value={i.quantity} onChange={(e) => upd(i.key, { quantity: e.target.value })} aria-label="Quantidade" />
+            <input className="input col-span-1 px-2 py-2.5 text-center text-sm sm:col-span-1" value={i.unit} onChange={(e) => upd(i.key, { unit: e.target.value })} aria-label="Unidade" />
+            <input className={`${num} col-span-3 sm:col-span-1`} inputMode="decimal" placeholder="R$ 0,00" value={i.unitPrice} onChange={(e) => upd(i.key, { unitPrice: e.target.value })} aria-label="Valor unitário" />
+          </div>
+          <p className="mt-1.5 text-right text-sm text-muted">Total: <b className="text-navy">{brl(parse(i.quantity) * parse(i.unitPrice))}</b></p>
+        </div>
+      ))}</div>;
+
   return (
     <div className="space-y-5 pb-28">
       {blocked && <div className="rounded-2xl border-2 border-brand bg-white p-4 font-bold text-navy">{blocked} <Link href="/painel/assinatura" className="underline">Ver planos</Link></div>}
@@ -101,32 +119,22 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes,
         <div><label className="label" htmlFor="title">Descrição do serviço <span className="font-normal text-muted">(opcional)</span></label><input id="title" className="input" value={v.title} onChange={(e) => set("title", e.target.value)} placeholder="Ex.: Troca do quadro de distribuição" /></div>
       </section>
 
-      {/* 2-5. ITENS */}
+      {/* 2. SERVIÇOS  3. MATERIAL */}
       <section className={sectionCls}>
-        <Step n={2} title="Serviços, materiais e mão de obra" />
-        {items.length === 0 && <p className="rounded-xl bg-light p-4 text-center text-muted">Nenhum item ainda. Use os botões abaixo para adicionar.</p>}
-        <div className="space-y-3">
-          {items.map((i) => (
-            <div key={i.key} className="rounded-xl border border-line p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className={`badge ${i.kind === "SERVICE" ? "bg-navy text-white" : i.kind === "MATERIAL" ? "bg-light text-navy" : "bg-brand text-navy"}`}>{KIND_LABEL[i.kind]}</span>
-                <button type="button" onClick={() => setItems((p) => p.filter((x) => x.key !== i.key))} className="flex items-center gap-1 text-sm font-bold text-red-700" aria-label="Remover item"><IconTrash className="h-4 w-4" /> Remover</button>
-              </div>
-              <div className="grid grid-cols-6 gap-2">
-                <input className="input col-span-6 py-2.5 sm:col-span-3" placeholder="Descrição" value={i.description} onChange={(e) => upd(i.key, { description: e.target.value })} aria-label="Descrição" />
-                <input className={`${num} col-span-2 sm:col-span-1`} inputMode="decimal" value={i.quantity} onChange={(e) => upd(i.key, { quantity: e.target.value })} aria-label="Quantidade" />
-                <input className="input col-span-1 px-2 py-2.5 text-center text-sm sm:col-span-1" value={i.unit} onChange={(e) => upd(i.key, { unit: e.target.value })} aria-label="Unidade" />
-                <input className={`${num} col-span-3 sm:col-span-1`} inputMode="decimal" placeholder="R$ 0,00" value={i.unitPrice} onChange={(e) => upd(i.key, { unitPrice: e.target.value })} aria-label="Valor unitário" />
-              </div>
-              <p className="mt-1.5 text-right text-sm text-muted">Total: <b className="text-navy">{brl(parse(i.quantity) * parse(i.unitPrice))}</b></p>
-            </div>
-          ))}
-        </div>
+        <Step n={2} title="Serviços" />
+        {itemList(items.filter((i) => i.kind !== "MATERIAL"), "Nenhum serviço ainda. Toque em + Serviço.")}
         <div className="grid grid-cols-2 gap-2">
           <button type="button" onClick={() => setPicker("SERVICE")} className="btn-navy"><IconPlus /> Serviço</button>
+          <button type="button" onClick={() => addBlank("LABOR")} className="btn-outline"><IconPlus /> Mão de obra</button>
+        </div>
+      </section>
+
+      <section className={sectionCls}>
+        <Step n={3} title="Material" />
+        {itemList(items.filter((i) => i.kind === "MATERIAL"), "Sem material incluso — é assim que vai aparecer no orçamento. Se tiver material, adicione abaixo.")}
+        <div className="grid grid-cols-2 gap-2">
           <button type="button" onClick={() => setPicker("MATERIAL")} className="btn-navy"><IconPlus /> Material</button>
-          <button type="button" onClick={() => addBlank("MATERIAL")} className="btn-outline text-sm"><IconPlus /> Material avulso</button>
-          <button type="button" onClick={() => addBlank("LABOR")} className="btn-outline text-sm"><IconPlus /> Mão de obra</button>
+          <button type="button" onClick={() => addBlank("MATERIAL")} className="btn-outline"><IconPlus /> Material avulso</button>
         </div>
         <div className="flex flex-wrap items-center gap-2 rounded-xl bg-light px-3 py-2 text-sm">
           <label htmlFor="margin" className="font-bold text-navy">Seu ganho no material da tabela:</label>
@@ -137,7 +145,7 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes,
 
       {/* VALORES */}
       <section className={sectionCls}>
-        <Step n={3} title="Deslocamento e desconto" />
+        <Step n={4} title="Deslocamento e desconto" />
         <div className="grid gap-3 sm:grid-cols-3">
           <div><label className="label" htmlFor="travel">Deslocamento (R$)</label><input id="travel" className={num} inputMode="decimal" placeholder="0,00" value={v.travelFee} onChange={(e) => set("travelFee", e.target.value)} /></div>
           <div><label className="label" htmlFor="dt">Tipo de desconto</label>
@@ -148,7 +156,7 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes,
 
       {/* CONDIÇÕES */}
       <section className={sectionCls}>
-        <Step n={4} title="Condições" />
+        <Step n={5} title="Condições" />
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="sm:col-span-2"><label className="label" htmlFor="pt">Condições de pagamento</label><input id="pt" className="input" value={v.paymentTerms} onChange={(e) => set("paymentTerms", e.target.value)} /></div>
           <div><label className="label" htmlFor="vd">Validade (dias)</label><input id="vd" type="number" min={1} max={180} className="input" value={v.validityDays} onChange={(e) => set("validityDays", e.target.value)} /></div>

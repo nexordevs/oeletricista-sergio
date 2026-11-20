@@ -1,4 +1,4 @@
-import { quoteSubject } from "@/lib/quote-title";
+import { quoteSubject, quoteSections, NO_MATERIAL } from "@/lib/quote-title";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
@@ -9,7 +9,6 @@ import { IconDownload, IconWhatsApp } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Orçamento", robots: { index: false, follow: false } };
-const KIND: Record<string, string> = { SERVICE: "Serviços", MATERIAL: "Material", LABOR: "Mão de obra" };
 
 // Página que o cliente final abre pelo link: mostra SOMENTE a identidade do eletricista.
 export default async function PublicQuote(props: { params: Promise<{ token: string }> }) {
@@ -27,7 +26,7 @@ export default async function PublicQuote(props: { params: Promise<{ token: stri
   const expired = quote.status === "EXPIRED" || validUntil < new Date();
   const name = brand.companyName || brand.professionalName;
   const discount = toNum(quote.subtotal) - toNum(quote.total);
-  const groups = ["SERVICE", "MATERIAL", "LABOR"].map((k) => ({ k, items: quote.items.filter((i) => i.kind === k) })).filter((g) => g.items.length);
+  const groups = quoteSections(quote.items).filter((g) => g.k === "MATERIAL" || g.items.length);
   const wa = brand.whatsapp ? waLink(brand.whatsapp, `Olá! Vi o orçamento nº ${String(quote.number).padStart(3, "0")} (${brl(quote.total)}) e gostaria de conversar.`) : null;
 
   return (
@@ -52,7 +51,8 @@ export default async function PublicQuote(props: { params: Promise<{ token: stri
         </section>
         {groups.map((g) => (
           <section key={g.k} className="card p-0">
-            <p className="rounded-t-2xl px-4 py-2.5 text-sm font-bold uppercase text-white" style={{ background: P }}>{KIND[g.k]}</p>
+            <p className="rounded-t-2xl px-4 py-2.5 text-sm font-bold uppercase text-white" style={{ background: P }}>{g.title}</p>
+            {g.items.length === 0 && <p className="px-4 py-3 font-bold text-muted">{NO_MATERIAL}</p>}
             <ul className="divide-y divide-line">{g.items.map((i) => (
               <li key={i.id} className="flex items-start justify-between gap-3 px-4 py-3"><span><span className="block font-bold">{i.description}</span><span className="text-sm text-muted">{Number(i.quantity).toLocaleString("pt-BR")} {i.unit} × {brl(i.unitPrice)}</span></span><b className="shrink-0">{brl(i.total)}</b></li>))}
             </ul>

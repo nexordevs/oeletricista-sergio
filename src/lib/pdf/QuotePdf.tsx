@@ -5,7 +5,7 @@ import React from "react";
 import { Document, Page, View, Text, Image, Font, StyleSheet, Svg, Polygon, renderToBuffer } from "@react-pdf/renderer";
 import type { Brand, Quote, QuoteItem } from "@prisma/client";
 import { brl, fmtDate, fmtPhone, toNum } from "../money";
-import { quoteSubject } from "../quote-title";
+import { quoteSubject, quoteSections, NO_MATERIAL } from "../quote-title";
 
 const F = path.join(process.cwd(), "public/fonts");
 Font.register({ family: "Brand", fonts: [
@@ -21,7 +21,6 @@ function mix(hex: string, white: number) {
   const ch = (s: number) => Math.round(((n >> s) & 255) * (1 - white) + 255 * white);
   return `#${[16, 8, 0].map((s) => ch(s).toString(16).padStart(2, "0")).join("")}`;
 }
-const KIND: Record<string, string> = { SERVICE: "Serviços", MATERIAL: "Material", LABOR: "Mão de obra" };
 const qty = (n: unknown) => toNum(n as number).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
 export type PdfData = { brand: Brand; quote: Quote & { items: QuoteItem[] } };
@@ -39,8 +38,7 @@ export function QuotePdf({ brand, quote }: PdfData) {
     thText: { color: "#fff", fontWeight: 700, fontSize: 8.5, textTransform: "uppercase" },
     tr: { flexDirection: "row", paddingVertical: 5.5, paddingHorizontal: 8, borderBottomWidth: 0.6, borderBottomColor: LN },
   });
-  const groups = (["SERVICE", "MATERIAL", "LABOR"] as const).map((k) => ({ k, items: quote.items.filter((i) => i.kind === k).sort((a, b) => a.position - b.position) })).filter((g) => g.items.length);
-  const itemsTotal = quote.items.reduce((a, i) => a + toNum(i.total), 0);
+  const groups = quoteSections(quote.items).filter((g) => g.k === "MATERIAL" || g.items.length);
   const travel = toNum(quote.travelFee);
   const discount = Math.max(0, Math.round((toNum(quote.subtotal) - toNum(quote.total)) * 100) / 100);
   const issued = quote.issuedAt || quote.createdAt;
@@ -90,7 +88,8 @@ export function QuotePdf({ brand, quote }: PdfData) {
           {/* ITENS */}
           {groups.map((g) => (
             <View key={g.k} wrap={false}>
-              <Text style={s.sectionTitle}>{KIND[g.k]}</Text><View style={s.bar} />
+              <Text style={s.sectionTitle}>{g.title}</Text><View style={s.bar} />
+              {g.items.length === 0 ? <View style={{ backgroundColor: LT, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 10 }}><Text style={{ color: GR, fontWeight: 700 }}>{NO_MATERIAL}</Text></View> : <>
               <View style={s.th}><Text style={[s.thText, col.d]}>Descrição</Text><Text style={[s.thText, col.q]}>Qtd</Text><Text style={[s.thText, col.u]}>Valor unit.</Text><Text style={[s.thText, col.t]}>Total</Text></View>
               {g.items.map((i, idx) => (
                 <View key={i.id} style={[s.tr, idx % 2 ? { backgroundColor: LT } : {}]}>
@@ -101,9 +100,9 @@ export function QuotePdf({ brand, quote }: PdfData) {
                 </View>
               ))}
               <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 8, paddingTop: 5 }}>
-                <Text style={{ color: GR, fontWeight: 700, marginRight: 14 }}>Subtotal {KIND[g.k].toLowerCase()}</Text>
+                <Text style={{ color: GR, fontWeight: 700, marginRight: 14 }}>{g.subtotalLabel}</Text>
                 <Text style={{ color: P, fontWeight: 700, width: 82, textAlign: "right" }}>{brl(g.items.reduce((a, i) => a + toNum(i.total), 0))}</Text>
-              </View>
+              </View></>}
             </View>
           ))}
 
@@ -117,7 +116,7 @@ export function QuotePdf({ brand, quote }: PdfData) {
             </View>
             <View style={{ width: 230 }}>
               <View style={{ paddingHorizontal: 4, marginBottom: 6 }}>
-                <Row k="Itens" v={brl(itemsTotal)} />
+                {quoteSections(quote.items).map((g) => <Row key={g.k} k={g.title} v={g.items.length ? brl(g.items.reduce((a, i) => a + toNum(i.total), 0)) : "—"} />)}
                 {travel > 0 && <Row k="Deslocamento" v={brl(travel)} />}
                 {discount > 0 && <Row k={`Desconto${quote.discountType === "PERCENT" ? ` (${qty(quote.discountValue)}%)` : ""}`} v={`- ${brl(discount)}`} red />}
               </View>
