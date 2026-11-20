@@ -15,7 +15,7 @@ const schema = z.object({
 });
 
 export async function createLead(_: ActionState, fd: FormData): Promise<ActionState> {
-  const ip = clientIp();
+  const ip = (await clientIp());
   if (!rateLimit(`lead:${ip}`, 5, 3600e3)) return { error: "Muitas solicitações. Tente novamente mais tarde ou chame no WhatsApp." };
   const p = parseForm(schema, fd);
   if (!p.ok) return p.error;

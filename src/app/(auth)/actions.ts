@@ -23,7 +23,7 @@ const signupSchema = z.object({
 });
 
 export async function signup(_: ActionState, fd: FormData): Promise<ActionState> {
-  if (!rateLimit(`signup:${clientIp()}`, 10, 3600e3)) return { error: "Muitas tentativas. Aguarde um pouco." };
+  if (!rateLimit(`signup:${(await clientIp())}`, 10, 3600e3)) return { error: "Muitas tentativas. Aguarde um pouco." };
   const p = parseForm(signupSchema, fd);
   if (!p.ok) return p.error;
   const { name, email, password, plano } = p.data;
@@ -42,7 +42,7 @@ export async function login(_: ActionState, fd: FormData): Promise<ActionState> 
   const p = parseForm(loginSchema, fd);
   if (!p.ok) return p.error;
   const { email, password, next } = p.data;
-  if (!rateLimit(`login:${clientIp()}`, 20, 900e3) || !rateLimit(`login:${email}`, 10, 900e3)) return { error: "Muitas tentativas. Aguarde 15 minutos." };
+  if (!rateLimit(`login:${(await clientIp())}`, 20, 900e3) || !rateLimit(`login:${email}`, 10, 900e3)) return { error: "Muitas tentativas. Aguarde 15 minutos." };
   const user = await prisma.user.findUnique({ where: { email } });
   const generic = { error: "E-mail ou senha incorretos." };
   if (!user) { await hashPassword("x"); return generic; } // tempo constante aproximado
@@ -67,7 +67,7 @@ export async function requestReset(_: ActionState, fd: FormData): Promise<Action
   const p = parseForm(z.object({ email: zEmail }), fd);
   if (!p.ok) return p.error;
   const ok = { ok: true, message: "Se o e-mail estiver cadastrado, você vai receber um link para criar uma nova senha. Confira também a caixa de spam." };
-  if (!rateLimit(`reset:${clientIp()}`, 5, 3600e3)) return ok;
+  if (!rateLimit(`reset:${(await clientIp())}`, 5, 3600e3)) return ok;
   const user = await prisma.user.findUnique({ where: { email: p.data.email } });
   if (!user || user.blocked) return ok;
   const token = randomToken();

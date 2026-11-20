@@ -63,6 +63,18 @@ async function makeQuote(p, client, beforeClick) {
   ok(await A.isVisible('text=atingiu o limite'), 'limite mensal do plano é respeitado no servidor');
   sql(`update "Plan" set "quoteLimit"=30 where slug='inicial'`);
 
+  // Status do orçamento (Aprovado / Recusado / Voltar para Enviado) — plano com status
+  const prem = sql(`select id from "Plan" where slug='premium'`);
+  sql(`update "User" set "manualPlanId"='${prem}' where id='${aId}'`);
+  await A.goto(B + '/painel/orcamentos/' + qid);
+  await A.click('button:has-text("Aprovado")'); await A.waitForTimeout(2500);
+  ok(sql(`select status from "Quote" where id='${qid}'`) === 'APPROVED', 'botão Aprovado muda o status para APROVADO');
+  await A.click('button:has-text("Voltar para")'); await A.waitForTimeout(2500);
+  ok(sql(`select status from "Quote" where id='${qid}'`) === 'SENT', 'botão Voltar para Enviado funciona');
+  await A.click('button:has-text("Recusado")'); await A.waitForTimeout(2500);
+  ok(sql(`select status from "Quote" where id='${qid}'`) === 'REJECTED', 'botão Recusado muda o status para RECUSADO');
+  sql(`update "Quote" set status='SENT', "decidedAt"=null where id='${qid}'`);
+
   // Isolamento: B não vê nada de A
   const Bp = await signup(b, 'Eletricista B', `b${t}@teste.local`);
   const r1 = await Bp.goto(B + '/painel/orcamentos/' + qid); ok(r1.status() === 404, 'B não abre orçamento de A (404)');
@@ -108,6 +120,9 @@ async function makeQuote(p, client, beforeClick) {
   await anon.goto(B + '/orcamento'); await anon.fill('#name', 'Maria Teste'); await anon.fill('#phone', '83999998888'); await anon.fill('#neighborhood', 'Manaíra');
   await anon.selectOption('#service', { index: 1 }); await anon.click('button:has-text("Enviar solicitação")'); await anon.waitForSelector('text=Continuar no WhatsApp');
   await adm.goto(B + '/admin/solicitacoes'); ok(await adm.isVisible('text=Maria Teste'), 'solicitação do site aparece no admin');
+  const lead = adm.locator('div.card', { hasText: 'Maria Teste' }).first();
+  await lead.locator('button:has-text("Em contato")').click(); await adm.waitForTimeout(2500);
+  ok(sql(`select status from "LeadRequest" where name='Maria Teste' order by "createdAt" desc limit 1`) === 'CONTACTED', 'admin muda status da solicitação para Em contato');
   await adm.screenshot({ path: S + 'admin-leads.png' });
   await adm.goto(B + '/admin'); await adm.screenshot({ path: S + 'admin.png', fullPage: true });
   await A.goto(B + '/painel'); await A.screenshot({ path: S + 'painel.png', fullPage: true });

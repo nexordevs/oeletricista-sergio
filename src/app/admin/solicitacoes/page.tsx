@@ -21,8 +21,8 @@ export default async function Solicitacoes(props: { searchParams: Promise<{ s?: 
           <p className="text-sm"><b>{l.service}</b>{l.description && <> — {l.description}</>}</p>
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <a href={waLink(l.phone, `Olá, ${l.name.split(" ")[0]}! Aqui é o Sergio, eletricista. Recebi seu pedido de orçamento (${l.service}).`)} target="_blank" rel="noopener" className="btn-wa btn-sm"><IconWhatsApp className="h-4 w-4" /> {fmtPhone(l.phone)}</a>
-            <form action={setLeadStatus} className="flex gap-1"><input type="hidden" name="id" value={l.id} />
-              {(Object.keys(ST) as LeadStatus[]).filter((k) => k !== l.status).map((k) => <button key={k} name="status" value={k} className="btn-ghost btn-sm text-xs">{ST[k][0]}</button>)}</form>
+            <div className="flex gap-1">
+              {(Object.keys(ST) as LeadStatus[]).filter((k) => k !== l.status).map((k) => <form key={k} action={setLeadStatus}><input type="hidden" name="id" value={l.id} /><input type="hidden" name="status" value={k} /><button className="btn-ghost btn-sm text-xs">{ST[k][0]}</button></form>)}</div>
           </div>
         </div>))}
       </div>

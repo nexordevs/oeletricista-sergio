@@ -74,12 +74,11 @@ export default async function Detalhe(
           <div className="card space-y-3">
             <p className="text-lg font-bold text-navy">Resposta do cliente</p>
             {canStatus ? (
-              <form action={setStatus} className="grid grid-cols-2 gap-2">
-                <input type="hidden" name="id" value={q.id} />
-                <button name="status" value="APPROVED" disabled={q.status === "APPROVED"} className="btn bg-green-600 text-white hover:bg-green-700">Aprovado</button>
-                <button name="status" value="REJECTED" disabled={q.status === "REJECTED"} className="btn-danger">Recusado</button>
-                {locked && <button name="status" value="SENT" className="btn-ghost btn-sm col-span-2">Voltar para “Enviado”</button>}
-              </form>
+              <div className="grid grid-cols-2 gap-2">
+                <form action={setStatus}><input type="hidden" name="id" value={q.id} /><input type="hidden" name="status" value="APPROVED" /><button disabled={q.status === "APPROVED"} className="btn w-full bg-green-600 text-white hover:bg-green-700">Aprovado</button></form>
+                <form action={setStatus}><input type="hidden" name="id" value={q.id} /><input type="hidden" name="status" value="REJECTED" /><button disabled={q.status === "REJECTED"} className="btn-danger w-full">Recusado</button></form>
+                {locked && <form action={setStatus} className="col-span-2"><input type="hidden" name="id" value={q.id} /><input type="hidden" name="status" value="SENT" /><button className="btn-ghost btn-sm w-full">Voltar para “Enviado”</button></form>}
+              </div>
             ) : <p className="text-sm text-muted">Controle de status no <Link href="/painel/assinatura" className="font-bold text-navy underline">plano Profissional</Link>.</p>}
           </div>
         )}

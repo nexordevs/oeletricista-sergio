@@ -1,5 +1,5 @@
 import "server-only";
-import { cookies, headers, type UnsafeUnwrappedHeaders } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "./db";
@@ -51,7 +51,7 @@ export async function requireAdmin() {
   return u;
 }
 
-export function clientIp() {
-  const h = (headers() as unknown as UnsafeUnwrappedHeaders);
+export async function clientIp() {
+  const h = await headers();
   return (h.get("x-forwarded-for")?.split(",")[0] || h.get("x-real-ip") || "local").trim();
 }
