@@ -1,4 +1,5 @@
 import path from "path";
+import sharp from "sharp";
 import React from "react";
 import { Document, Page, View, Text, Image, Font, StyleSheet, Svg, Polygon, renderToBuffer } from "@react-pdf/renderer";
 import type { Brand, Quote, QuoteItem } from "@prisma/client";
@@ -176,5 +177,29 @@ function Row({ k, v, red }: { k: string; v: string; red?: boolean }) {
   return <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}><Text style={{ color: GR }}>{k}</Text><Text style={{ fontWeight: 700, color: red ? "#B91C1C" : "#111" }}>{v}</Text></View>;
 }
 
-export const renderQuotePdf = (d: PdfData) => renderToBuffer(<QuotePdf {...d} />);
+// Regrava logo/assinatura como PNG 8 bits simples (o gerador de PDF não lê alguns formatos de PNG).
+async function safePng(buf: Uint8Array | null): Promise<Buffer | null> {
+  if (!buf) return null;
+  try { return await sharp(Buffer.from(buf)).toColourspace("srgb").ensureAlpha().png({ progressive: false, palette: false, compressionLevel: 6 }).toBuffer(); }
+  catch (e) { console.error("[pdf] imagem ignorada:", e); return null; }
+}
+
+/** Gera o PDF. Se falhar com as imagens, tenta de novo sem logo/assinatura em vez de derrubar o download. */
+export async function renderQuotePdf(d: PdfData): Promise<Buffer> {
+  const [logo, signature] = await Promise.all([safePng(d.brand.logo), safePng(d.brand.signature)]);
+  const brand = { ...d.brand, logo, logoMime: logo ? "image/png" : null, signature, signatureMime: signature ? "image/png" : null } as PdfData["brand"];
+  try { return await renderToBuffer(<QuotePdf brand={brand} quote={d.quote} />); }
+  catch (e) {
+    console.error("[pdf] falhou com imagens, tentando sem:", e);
+    return await renderToBuffer(<QuotePdf brand={{ ...brand, logo: null, logoMime: null, signature: null, signatureMime: null }} quote={d.quote} />);
+  }
+}
+/** Página simples no lugar da tela de erro do navegador, e registra o motivo nos logs da Vercel. */
+const esc = (x: string) => x.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+export function pdfError(e: unknown, back: string, showDetail = false) {
+  console.error("[pdf] erro ao gerar orçamento:", e);
+  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Erro ao gerar PDF</title><body style="font-family:sans-serif;max-width:480px;margin:40px auto;padding:0 16px;color:#0F2742"><h1 style="font-size:20px">Não foi possível gerar o PDF agora</h1><p>Tente de novo em alguns segundos. Se continuar, tire um print desta tela e envie ao suporte.</p>${showDetail ? `<p style="font-size:12px;color:#5B6B7D;word-break:break-word">Detalhe técnico: ${esc(String((e as Error)?.message ?? e).slice(0, 300))}</p>` : ""}<p><a href="${back}" style="display:inline-block;background:#FFB400;color:#0F2742;padding:12px 18px;border-radius:10px;font-weight:700;text-decoration:none">Voltar ao orçamento</a></p></body>`;
+  return new Response(html, { status: 500, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+}
+
 export const pdfFilename = (q: Quote) => `orcamento-${String(q.number).padStart(3, "0")}-${q.clientName.normalize("NFD").replace(/[^\w]+/g, "-").replace(/-+/g, "-").toLowerCase().slice(0, 40)}.pdf`;
