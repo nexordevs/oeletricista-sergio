@@ -1,5 +1,6 @@
 import path from "path";
 import sharp from "sharp";
+import * as fontkit from "fontkit";
 import React from "react";
 import { Document, Page, View, Text, Image, Font, StyleSheet, Svg, Polygon, renderToBuffer } from "@react-pdf/renderer";
 import type { Brand, Quote, QuoteItem } from "@prisma/client";
@@ -130,7 +131,7 @@ export function QuotePdf({ brand, quote }: PdfData) {
           {quote.notes && (
             <View wrap={false}>
               <Text style={s.sectionTitle}>Observações</Text><View style={s.bar} />
-              <Text style={{ lineHeight: 1.4 }}>{quote.notes.replace(/\r/g, "")}</Text>
+              <View>{quote.notes.split("\n").map((line, i) => <Text key={i} style={{ marginBottom: 2.5 }}>{line.trim() || " "}</Text>)}</View>
             </View>
           )}
 
@@ -184,14 +185,32 @@ async function safePng(buf: Uint8Array | null): Promise<Buffer | null> {
   catch (e) { console.error("[pdf] imagem ignorada:", e); return null; }
 }
 
+// Emojis e símbolos que a fonte não tem derrubam o gerador de PDF ("unitsPerEm").
+// Remove de todos os textos qualquer caractere sem desenho na fonte Carlito.
+let hasGlyph: ((cp: number) => boolean) | null = null;
+function glyphCheck() {
+  if (!hasGlyph) {
+    try { const f = fontkit.openSync(path.join(F, "Carlito-Regular.ttf")) as unknown as { hasGlyphForCodePoint(cp: number): boolean }; hasGlyph = (cp) => f.hasGlyphForCodePoint(cp); }
+    catch { hasGlyph = (cp) => cp <= 0xffff && !(cp >= 0xfe00 && cp <= 0xfe0f) && cp !== 0x200d && !(cp >= 0x2600 && cp <= 0x27bf); }
+  }
+  return hasGlyph;
+}
+export function pdfText(v: string): string {
+  const ok = glyphCheck();
+  return Array.from(v.replace(/\r/g, "")).filter((ch) => { const cp = ch.codePointAt(0)!; return cp === 10 || cp === 9 || cp === 32 || ok(cp); }).join("").replace(/[ \t]{2,}/g, " ").replace(/ +\n/g, "\n");
+}
+// Quebra de linha dentro de um <Text> também derruba o gerador: só "notes" mantém linhas (renderizadas uma a uma).
+const cleanObj = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === "string" ? (k === "notes" ? pdfText(v) : pdfText(v).replace(/\s*\n\s*/g, " ").trim()) : v])) as T;
+
 /** Gera o PDF. Se falhar com as imagens, tenta de novo sem logo/assinatura em vez de derrubar o download. */
 export async function renderQuotePdf(d: PdfData): Promise<Buffer> {
   const [logo, signature] = await Promise.all([safePng(d.brand.logo), safePng(d.brand.signature)]);
-  const brand = { ...d.brand, logo, logoMime: logo ? "image/png" : null, signature, signatureMime: signature ? "image/png" : null } as PdfData["brand"];
-  try { return await renderToBuffer(<QuotePdf brand={brand} quote={d.quote} />); }
+  const quote = { ...cleanObj(d.quote), items: d.quote.items.map(cleanObj) };
+  const brand = { ...cleanObj(d.brand), logo, logoMime: logo ? "image/png" : null, signature, signatureMime: signature ? "image/png" : null } as PdfData["brand"];
+  try { return await renderToBuffer(<QuotePdf brand={brand} quote={quote} />); }
   catch (e) {
     console.error("[pdf] falhou com imagens, tentando sem:", e);
-    return await renderToBuffer(<QuotePdf brand={{ ...brand, logo: null, logoMime: null, signature: null, signatureMime: null }} quote={d.quote} />);
+    return await renderToBuffer(<QuotePdf brand={{ ...brand, logo: null, logoMime: null, signature: null, signatureMime: null }} quote={quote} />);
   }
 }
 /** Página simples no lugar da tela de erro do navegador, e registra o motivo nos logs da Vercel. */

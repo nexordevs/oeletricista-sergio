@@ -98,6 +98,12 @@ async function makeQuote(p, client, beforeClick) {
   ok(await cl.isVisible('text=não está mais disponível'), 'cliente abrindo o link depois do prazo vê que a proposta não está disponível');
   sql(`delete from "Quote" where id in ('old${t}','new${t}')`);
 
+  // PDF com observações em várias linhas e emojis (antes dava erro "unitsPerEm")
+  sql(`update "Quote" set notes=E'• Garantia de 90 dias.\\r\\n• Materiais não inclusos 👍\\n\\n• NBR 5410 ⚡️' where id='${qid}'`);
+  for (const u of [`/painel/orcamentos/${qid}/pdf`, `/o/${sql(`select "shareToken" from "Quote" where id='${qid}'`)}/pdf`]) {
+    const r = await A.context().request.get(B + u); ok(r.status() === 200 && (await r.body()).subarray(0, 4).toString() === '%PDF', `PDF com várias linhas e emoji baixa normal (${u.startsWith('/o/') ? 'link do cliente' : 'painel'})`);
+  }
+
   // Isolamento: B não vê nada de A
   const Bp = await signup(b, 'Eletricista B', `b${t}@teste.local`);
   const r1 = await Bp.goto(B + '/painel/orcamentos/' + qid); ok(r1.status() === 404, 'B não abre orçamento de A (404)');
