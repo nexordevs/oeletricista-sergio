@@ -4,7 +4,18 @@ import { brl } from "@/lib/money";
 import { IconCheck } from "@/components/icons";
 
 export function planFeatures(p: Plan) {
-  const f = [p.quoteLimit == null ? "Orçamentos ilimitados" : `Até ${p.quoteLimit} orçamentos por mês`, "Cadastro de clientes", "Catálogo de serviços e tabela de preços", "PDF com sua logomarca", "Calculadora de circuitos (NBR 5410)", "Guia de solução de problemas"];
+  const f = [
+    p.quoteLimit == null ? "Orçamentos ilimitados" : `Até ${p.quoteLimit} orçamentos por mês`,
+    "PDF com sua logomarca, separado em Serviços e Material",
+    "Tabela de serviços com preço médio de mercado",
+    "Tabela com +180 materiais elétricos e preço de referência",
+    "Sua margem (%) somada sozinha no material",
+    "Cadastro de clientes",
+    "Calculadora de circuitos (NBR 5410): um ou vários de uma vez",
+    "Lista de materiais da obra que vira orçamento com 1 toque",
+    "Guia de solução de problemas",
+    "App no celular que funciona sem internet",
+  ];
   if (p.featBrandFull) f.push("Personalização completa (cores e assinatura)");
   if (p.featClientHistory) f.push("Histórico por cliente");
   if (p.featStatus) f.push("Controle de status (aprovado, recusado…)");
