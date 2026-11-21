@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { calcQuote } from "@/lib/quote-calc";
@@ -36,6 +36,20 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes,
   const [picker, setPicker] = useState<null | "SERVICE" | "MATERIAL">(null);
 
   const set = <K extends keyof EditorInitial>(key: K, val: EditorInitial[K]) => setV((p) => ({ ...p, [key]: val }));
+  const [fromCalc, setFromCalc] = useState(0);
+  // Materiais vindos da calculadora de circuitos ("Criar orçamento com esses materiais")
+  useEffect(() => {
+    if (initial.id || !window.location.search.includes("de=calculadora")) return;
+    let list: { nome: string; catalogo: string | null; unidade: string; qtd: number }[] = [];
+    try { list = JSON.parse(sessionStorage.getItem("calc-materiais") || "[]"); sessionStorage.removeItem("calc-materiais"); } catch { return; }
+    if (!list.length) return;
+    const pct = Math.max(0, Number(String(markup).replace(",", ".")) || 0);
+    setItems((p) => [...p, ...list.map((m) => {
+      const cat = services.find((x) => x.kind === "MATERIAL" && x.name === m.catalogo);
+      return { key: k(), kind: "MATERIAL" as Kind, description: m.nome, unit: m.unidade, quantity: String(m.qtd).replace(".", ","), unitPrice: cat ? fmt(withMarkup(cat.price, pct)) : "" };
+    })]);
+    setFromCalc(list.length);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const totals = useMemo(() => calcQuote({
     items: items.map((i) => ({ quantity: parse(i.quantity), unitPrice: parse(i.unitPrice) })),
     travelFee: parse(v.travelFee), discountType: v.discountType, discountValue: parse(v.discountValue),
@@ -95,6 +109,7 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes,
   return (
     <div className="space-y-5 pb-28">
       {blocked && <div className="rounded-2xl border-2 border-brand bg-white p-4 font-bold text-navy">{blocked} <Link href="/painel/assinatura" className="underline">Ver planos</Link></div>}
+      {fromCalc > 0 && <p role="status" className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-green-800">{fromCalc} materiais vieram da calculadora, com os preços da sua tabela. Confira as quantidades e preencha os que ficaram sem valor.</p>}
       {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 font-bold text-red-700">{error}</p>}
 
       {/* 1. CLIENTE */}

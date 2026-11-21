@@ -49,3 +49,20 @@ test("todos os aparelhos da lista geram um dimensionamento válido (220 V ou o s
     assert.ok(r.disjuntor! >= r.ib && r.iz! >= r.disjuntor!, `${p.nome}: Ib ≤ In ≤ Iz`);
   }
 });
+
+test("vários circuitos: demanda, geral, quadro e materiais", async () => {
+  const { projetoCompleto } = await import("../src/lib/eletrica/dimensionamento");
+  const c = (nome: string, w: number, tipo: "iluminacao" | "tomadas" | "dedicado", q: number, mol = false) => ({ nome, potenciaW: w, quantidade: q, comprimentoM: 10, tipo, areaMolhada: mol, fp: 1, sistema: "mono" as const, tensao: 220 });
+  const p = projetoCompleto([c("Chuveiro", 7500, "dedicado", 1, true), c("Tomadas", 1200, "tomadas", 2), c("Iluminação", 1000, "iluminacao", 1)], { entrada: "mono", metodo: "B1", temperatura: 30, quedaMax: 4, agrupados: 1, distanciaEntradaM: 10 });
+  assert.equal(p.circuitos.length, 4);
+  assert.equal(p.potenciaInstalada, 10900);
+  // ilum+TUG 3,4 kVA × 0,59 + chuveiro 7,5 kVA × 1
+  assert.equal(p.demanda, Math.round(3400 * 0.59 + 7500));
+  assert.ok(p.geral.disjuntor && p.geral.disjuntor >= p.correnteDemanda);
+  assert.equal(p.dr.motivo.startsWith("obrigatório"), true);
+  assert.equal(p.dps, 2);
+  assert.ok(p.quadro >= p.modulos + p.reserva);
+  const cabo6 = p.materiais.find((m) => m.chave === "cabo-6");
+  assert.ok(cabo6 && cabo6.catalogo === "Cabo flexível 6 mm² 750 V", "chuveiro 7500 W em 6 mm²");
+  assert.ok(p.materiais.some((m) => m.catalogo === "Disjuntor DIN unipolar 40 A"));
+});
