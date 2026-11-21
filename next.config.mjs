@@ -11,6 +11,11 @@ const nextConfig = {
   serverExternalPackages: ["@react-pdf/renderer", "fontkit", "sharp", "bcryptjs"],
   outputFileTracingIncludes: { "/**/*": ["./public/fonts/**"] }, // fontes usadas no PDF
   experimental: { serverActions: { bodySizeLimit: "4mb" } }, // Vercel aceita até 4,5 MB por requisição
-  async headers() { return [{ source: "/(.*)", headers: securityHeaders }]; },
+  async headers() {
+    return [
+      { source: "/(.*)", headers: securityHeaders },
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }, { key: "Service-Worker-Allowed", value: "/" }, { key: "Content-Type", value: "application/javascript; charset=utf-8" }] },
+    ];
+  },
 };
 export default nextConfig;

@@ -4,6 +4,7 @@ import { panelContext } from "@/lib/panel";
 import { hasFeature } from "@/lib/access";
 import { logout } from "@/app/(auth)/actions";
 import { fmtDate } from "@/lib/money";
+import { PwaPanel } from "@/components/pwa/PwaPanel";
 import { IconHome, IconPlus, IconFile, IconUsers, IconList, IconPalette, IconMoney, IconChart, IconCard, IconSettings, IconBolt, IconWrench, IconPlay } from "@/components/icons";
 
 export const metadata = { title: "Painel", robots: { index: false } };
@@ -47,5 +48,5 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   ) : access.source === "manual" && access.until ? (
     <p className="mb-4 rounded-xl bg-white px-4 py-2 text-sm text-muted">Acesso liberado pela administração até <b>{fmtDate(access.until)}</b>.</p>
   ) : null;
-  return <Shell nav={nav} mobileNav={mobileNav} user={user.name} titles={titles} logout={logout} banner={banner}>{children}</Shell>;
+  return <Shell nav={nav} mobileNav={mobileNav} user={user.name} titles={titles} logout={logout} banner={<><PwaPanel userId={user.id} />{banner}</>}>{children}</Shell>;
 }

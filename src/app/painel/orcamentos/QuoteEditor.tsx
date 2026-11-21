@@ -5,6 +5,7 @@ import Link from "next/link";
 import { calcQuote } from "@/lib/quote-calc";
 import { brl } from "@/lib/money";
 import { withMarkup } from "@/lib/quote-title";
+import { enqueue, isNetworkError } from "@/lib/offline-queue";
 import { saveQuote, type QuotePayload } from "./actions";
 import { IconPlus, IconTrash, IconX } from "@/components/icons";
 
@@ -23,7 +24,8 @@ const fmt = (n: number) => n.toFixed(2).replace(".", ",");
 let seq = 0; const k = () => `i${++seq}`;
 const KIND_LABEL: Record<Kind, string> = { SERVICE: "Serviço", MATERIAL: "Material", LABOR: "Mão de obra" };
 
-export function QuoteEditor({ initial, services, clients, blocked, defaultNotes, markup = 0 }: { initial: EditorInitial; services: Svc[]; clients: Cli[]; blocked?: string; defaultNotes?: string | null; markup?: number }) {
+export function QuoteEditor({ initial, services, clients, blocked, defaultNotes, markup = 0, userId }: { initial: EditorInitial; services: Svc[]; clients: Cli[]; blocked?: string; defaultNotes?: string | null; markup?: number; userId?: string }) {
+  const [offlineSaved, setOfflineSaved] = useState(false);
   const [margin, setMargin] = useState(String(markup));
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -78,8 +80,18 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes,
       travelFee: parse(v.travelFee), discountType: v.discountType, discountValue: parse(v.discountValue),
       paymentTerms: v.paymentTerms, executionTime: v.executionTime, validityDays: Number(v.validityDays) || 7, notes: v.notes,
     };
+    // Sem internet: guarda no celular e envia sozinho quando a conexão voltar (só orçamentos novos).
+    const guardar = () => {
+      if (!userId || v.id) { setError("Sem internet. Para editar um orçamento já salvo, conecte-se e tente de novo."); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+      if (!items.length || !(v.clientName || "").trim()) { setError("Preencha o cliente e pelo menos um item."); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+      enqueue({ userId, payload, intent, clientName: v.clientName, total: totals.total });
+      setOfflineSaved(true); window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    if (typeof navigator !== "undefined" && !navigator.onLine) { guardar(); return; }
     start(async () => {
-      const r = await saveQuote(payload, intent);
+      let r;
+      try { r = await saveQuote(payload, intent); }
+      catch (e) { if (isNetworkError(e)) { guardar(); return; } throw e; }
       if (!r.ok) { setError(r.error); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
       router.push(`/painel/orcamentos/${r.id}?salvo=1`);
       router.refresh();
@@ -109,6 +121,13 @@ export function QuoteEditor({ initial, services, clients, blocked, defaultNotes,
   return (
     <div className="space-y-5 pb-28">
       {blocked && <div className="rounded-2xl border-2 border-brand bg-white p-4 font-bold text-navy">{blocked} <Link href="/painel/assinatura" className="underline">Ver planos</Link></div>}
+      {offlineSaved && (
+        <div role="status" className="rounded-2xl border-2 border-brand bg-navy p-5 text-white">
+          <p className="text-lg font-bold">Orçamento guardado no celular ✓</p>
+          <p className="mt-1 text-sm text-navy-soft">Você está sem internet. Ele será enviado sozinho quando a conexão voltar e aparecerá na lista de orçamentos.</p>
+          <button type="button" className="btn-primary mt-3" onClick={() => { setOfflineSaved(false); setItems([]); setV(initial); }}>Fazer outro orçamento</button>
+        </div>
+      )}
       {fromCalc > 0 && <p role="status" className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-green-800">{fromCalc} materiais vieram da calculadora, com os preços da sua tabela. Confira as quantidades e preencha os que ficaram sem valor.</p>}
       {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 font-bold text-red-700">{error}</p>}
 
