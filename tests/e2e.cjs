@@ -90,6 +90,9 @@ async function makeQuote(p, client, beforeClick) {
   const pub = await (await b.newContext()).newPage(); await pub.goto(`${B}/o/${sql(`select "shareToken" from "Quote" where id='${qid}'`)}`);
   const pubHtml = (await pub.innerText('body')) + (await (await fetch(`${B}/o/${sql(`select "shareToken" from "Quote" where id='${qid}'`)}`)).text());
   ok(!pubHtml.includes('Ajudante Teste') && !pubHtml.includes('Divisão') && !pubHtml.includes('ajudante') && !pubHtml.includes('helperName'), 'cliente não vê a divisão no link do orçamento' + (pubHtml.includes('Ajudante Teste') ? ' (achou o nome do ajudante)' : ''));
+  await A.goto(B + '/painel');
+  const netTxt = await A.locator('a:has-text("Ficou pra você este mês")').innerText().catch(() => '');
+  ok(netTxt.includes((totalQ - 50).toFixed(2).replace('.', ',')) && netTxt.includes('ajudante'), 'painel inicial mostra "Ficou pra você este mês" já descontando ajudante e material');
   await A.goto(B + '/painel/financeiro?aba=divisao'); ok(await A.isVisible('text=Ficou pra você') && await A.isVisible('text=Pago a ajudantes'), 'financeiro tem a aba Divisão por serviço');
   await A.goto(B + '/painel/orcamentos/' + qid);
   await A.click('button:has-text("Voltar para")'); await A.waitForTimeout(2500);

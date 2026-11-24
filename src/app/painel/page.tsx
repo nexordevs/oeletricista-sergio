@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { panelContext } from "@/lib/panel";
 import { expireQuotes } from "@/lib/quotes";
-import { monthStart } from "@/lib/access";
+import { monthStart, hasFeature } from "@/lib/access";
 import { brl, fmtDate } from "@/lib/money";
 import { StatusBadge } from "@/lib/quote-status";
 import { IconPlus, IconCheck } from "@/components/icons";
@@ -15,7 +15,7 @@ export default async function Dashboard() {
   const [byStatus, monthAgg, monthApproved, recent, brand, clients, customPrices] = await Promise.all([
     prisma.quote.groupBy({ by: ["status"], where: { userId: user.id }, _count: true, _sum: { total: true } }),
     prisma.quote.aggregate({ where: { userId: user.id, createdAt: { gte: since }, status: { not: "DRAFT" } }, _count: true, _sum: { total: true } }),
-    prisma.quote.aggregate({ where: { userId: user.id, decidedAt: { gte: since }, status: "APPROVED" }, _count: true, _sum: { total: true } }),
+    prisma.quote.aggregate({ where: { userId: user.id, decidedAt: { gte: since }, status: "APPROVED" }, _count: true, _sum: { total: true, helperAmount: true, materialCost: true } }),
     prisma.quote.findMany({ where: { userId: user.id }, orderBy: { updatedAt: "desc" }, take: 5 }),
     prisma.brand.findUnique({ where: { userId: user.id }, select: { phone: true, whatsapp: true, logoMime: true } }),
     prisma.client.count({ where: { userId: user.id } }),
@@ -25,6 +25,9 @@ export default async function Dashboard() {
   const total = byStatus.reduce((a, b) => a + b._count, 0);
   const totalValue = byStatus.filter((b) => b.status !== "DRAFT").reduce((a, b) => a + Number(b._sum.total ?? 0), 0);
   const pending = c("SENT") + c("VIEWED");
+  // Divisão do valor: o que foi para ajudante e material sai do aprovado → "ficou pra você"
+  const apMes = Number(monthApproved._sum.total ?? 0), ajMes = Number(monthApproved._sum.helperAmount ?? 0), matMes = Number(monthApproved._sum.materialCost ?? 0);
+  const showNet = hasFeature(access, "finance");
 
   const steps = [
     { done: Boolean(brand?.whatsapp || brand?.phone), label: "Preencha sua marca (nome, WhatsApp, logomarca)", href: "/painel/marca" },
@@ -65,10 +68,17 @@ export default async function Dashboard() {
         <Stat label="Pendentes" value={String(pending)} tone="blue" />
         <Stat label="Recusados" value={String(c("REJECTED"))} tone="red" />
       </div>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className={`grid gap-3 md:grid-cols-2 ${showNet ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
         <Stat big label="Valor total orçado" value={brl(totalValue)} />
         <Stat big label="Orçado este mês" value={brl(monthAgg._sum.total)} sub={`${monthAgg._count} orçamento(s) enviados`} />
-        <Stat big label="Aprovado este mês" value={brl(monthApproved._sum.total)} sub={`${monthApproved._count} aprovado(s)`} tone="green" />
+        <Stat big label="Aprovado este mês" value={brl(apMes)} sub={`${monthApproved._count} aprovado(s)`} tone="green" />
+        {showNet && (
+          <Link href="/painel/financeiro?aba=divisao" className="card border-l-4 border-l-brand bg-navy text-white transition hover:opacity-95">
+            <p className="text-xs font-bold uppercase tracking-wide text-navy-soft">Ficou pra você este mês</p>
+            <p className="mt-1 text-2xl font-bold text-brand">{brl(apMes - ajMes - matMes)}</p>
+            <p className="text-xs text-navy-soft">{ajMes || matMes ? `− ajudante ${brl(ajMes)} · − material ${brl(matMes)}` : "Informe o ajudante e o material em cada orçamento aprovado →"}</p>
+          </Link>
+        )}
       </div>
       {access.active && access.quoteLimit != null && (
         <p className="text-sm text-muted">Uso do plano: <b>{access.quotesThisMonth} de {access.quoteLimit}</b> orçamentos este mês.</p>

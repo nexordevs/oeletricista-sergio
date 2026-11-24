@@ -12,7 +12,7 @@ export default async function Relatorios() {
   await expireQuotes(user.id);
   const since = new Date(); since.setMonth(since.getMonth() - 5); since.setDate(1); since.setHours(0, 0, 0, 0);
   const [quotes, top] = await Promise.all([
-    prisma.quote.findMany({ where: { userId: user.id, status: { not: "DRAFT" } }, select: { status: true, total: true, createdAt: true, issuedAt: true, decidedAt: true } }),
+    prisma.quote.findMany({ where: { userId: user.id, status: { not: "DRAFT" } }, select: { status: true, total: true, helperAmount: true, materialCost: true, createdAt: true, issuedAt: true, decidedAt: true } }),
     prisma.quoteItem.groupBy({ by: ["description"], where: { quote: { userId: user.id, status: "APPROVED" }, kind: "SERVICE" }, _sum: { total: true }, _count: true, orderBy: { _sum: { total: "desc" } }, take: 8 }),
   ]);
   const decided = quotes.filter((q) => ["APPROVED", "REJECTED", "EXPIRED"].includes(q.status));
@@ -35,7 +35,7 @@ export default async function Relatorios() {
         <Kpi label="Taxa de aprovação" value={`${conv.toFixed(0)}%`} sub={`${approved.length} de ${decided.length} decididos`} />
         <Kpi label="Ticket médio aprovado" value={brl(ticket)} />
         <Kpi label="Tempo médio até aprovar" value={`${avgDays.toFixed(1)} dias`} />
-        <Kpi label="Total aprovado" value={brl(approved.reduce((a, q) => a + Number(q.total), 0))} />
+        <Kpi label="Total aprovado" value={brl(approved.reduce((a, q) => a + Number(q.total), 0))} sub={`ficou pra você: ${brl(approved.reduce((a, q) => a + Number(q.total) - Number(q.helperAmount) - Number(q.materialCost), 0))}`} />
       </div>
       <section className="card">
         <p className="font-bold text-navy">Últimos 6 meses</p>
