@@ -66,6 +66,13 @@ enum FinanceType {
   EXPENSE
 }
 
+// Controle de gastos: essencial (50%), desejo (30%), reserva/investimento (20%)
+enum BudgetGroup {
+  ESSENCIAL
+  DESEJO
+  RESERVA
+}
+
 model User {
   id                String    @id @default(cuid())
   email             String    @unique
@@ -92,6 +99,7 @@ model User {
   subscriptions Subscription[]
   payments      Payment[]
   finance       FinanceEntry[]
+  budgetCategories BudgetCategory[]
   quoteCounter  Int                  @default(0)
 }
 
@@ -262,6 +270,8 @@ model FinanceEntry {
   quote       Quote?      @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   auto        Boolean     @default(false) // criado automaticamente pela aprovação do orçamento
   autoKind    String?     // null/"receita" = valor do orçamento · "ajudante" · "material" (divisão do valor)
+  categoryId  String?     // categoria do controle de gastos
+  category    BudgetCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   createdAt   DateTime    @default(now())
 
   @@index([userId, date])
@@ -470,4 +480,19 @@ model LessonProgress {
   completedAt DateTime @default(now())
 
   @@id([userId, lessonId])
+}
+
+// Controle de gastos: categorias com valor planejado por mês
+model BudgetCategory {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  planned   Decimal        @default(0) @db.Decimal(12, 2)
+  group     BudgetGroup    @default(ESSENCIAL)
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now())
+  entries   FinanceEntry[]
+
+  @@index([userId])
 }

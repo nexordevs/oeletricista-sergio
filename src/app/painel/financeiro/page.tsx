@@ -19,7 +19,7 @@ export default async function Financeiro(props: { searchParams: Promise<{ m?: st
   const start = new Date(Date.UTC(y, mo - 1, 1, 3)), end = new Date(Date.UTC(y, mo, 1, 3));
   const prev = `${mo === 1 ? y - 1 : y}-${String(mo === 1 ? 12 : mo - 1).padStart(2, "0")}`, next = `${mo === 12 ? y + 1 : y}-${String(mo === 12 ? 1 : mo + 1).padStart(2, "0")}`;
   const [entries, approved] = await Promise.all([
-    prisma.financeEntry.findMany({ where: { userId: user.id, date: { gte: start, lt: end } }, orderBy: { date: "desc" } }),
+    prisma.financeEntry.findMany({ where: { userId: user.id, date: { gte: start, lt: end } }, orderBy: { date: "desc" }, include: { category: { select: { name: true } } } }),
     prisma.quote.findMany({ where: { userId: user.id, status: "APPROVED", finance: { none: {} } }, orderBy: { decidedAt: "desc" }, take: 30 }),
   ]);
   const inc = entries.filter((e) => e.type === "INCOME").reduce((a, e) => a + Number(e.amount), 0);
@@ -28,9 +28,10 @@ export default async function Financeiro(props: { searchParams: Promise<{ m?: st
   const aba = searchParams.aba === "divisao" ? "divisao" : "lancamentos";
   const q = (extra: string) => `?m=${m}${extra}`;
   const tabs = (
-    <nav className="flex gap-2" aria-label="Abas do financeiro">
+    <nav className="grid grid-cols-3 gap-2 text-sm sm:text-base" aria-label="Abas do financeiro">
       <Link href={q("")} className={`flex-1 rounded-xl px-4 py-3 text-center font-bold ${aba === "lancamentos" ? "bg-navy text-white" : "bg-white text-navy"}`}>Lançamentos</Link>
       <Link href={q("&aba=divisao")} className={`flex-1 rounded-xl px-4 py-3 text-center font-bold ${aba === "divisao" ? "bg-navy text-white" : "bg-white text-navy"}`}>Divisão por serviço</Link>
+      <Link href={`/painel/gastos?m=${m}`} className="flex-1 rounded-xl bg-white px-4 py-3 text-center font-bold text-navy">Controle de gastos</Link>
     </nav>
   );
   const nav = <div className="flex items-center justify-between rounded-xl bg-white p-2"><Link href={`?m=${prev}${aba === "divisao" ? "&aba=divisao" : ""}`} className="btn-ghost btn-sm">← Anterior</Link><b className="capitalize text-navy">{label}</b><Link href={`?m=${next}${aba === "divisao" ? "&aba=divisao" : ""}`} className="btn-ghost btn-sm">Próximo →</Link></div>;
@@ -79,7 +80,7 @@ export default async function Financeiro(props: { searchParams: Promise<{ m?: st
         {entries.length === 0 ? <div className="card text-center text-muted">Nenhum lançamento neste mês.</div> : (
           <ul className="card divide-y divide-line p-0">{entries.map((e) => (
             <li key={e.id} className="flex items-center justify-between gap-3 px-5 py-3">
-              <span><b className="block text-navy">{e.description}</b><span className="text-xs text-muted">{fmtDate(e.date)}{e.auto && <span className="badge ml-2 bg-light text-navy">{e.autoKind === "ajudante" ? "ajudante" : e.autoKind === "material" ? "material" : "automático"}</span>}</span></span>
+              <span><b className="block text-navy">{e.description}</b><span className="text-xs text-muted">{fmtDate(e.date)}{e.category && <span className="badge ml-2 bg-brand/30 text-navy">{e.category.name}</span>}{e.auto && <span className="badge ml-2 bg-light text-navy">{e.autoKind === "ajudante" ? "ajudante" : e.autoKind === "material" ? "material" : "automático"}</span>}</span></span>
               <span className="flex items-center gap-3"><b className={e.type === "INCOME" ? "text-green-700" : "text-red-700"}>{e.type === "INCOME" ? "+" : "−"} {brl(e.amount)}</b>
                 <form action={deleteEntry}><input type="hidden" name="id" value={e.id} /><ConfirmButton message="Excluir lançamento?" className="text-xs font-bold text-muted hover:text-red-700">Excluir</ConfirmButton></form></span>
             </li>))}

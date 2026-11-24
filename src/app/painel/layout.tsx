@@ -5,14 +5,14 @@ import { hasFeature } from "@/lib/access";
 import { logout } from "@/app/(auth)/actions";
 import { fmtDate } from "@/lib/money";
 import { PwaPanel } from "@/components/pwa/PwaPanel";
-import { IconHome, IconPlus, IconFile, IconUsers, IconList, IconPalette, IconMoney, IconChart, IconCard, IconSettings, IconBolt, IconWrench, IconPlay } from "@/components/icons";
+import { IconHome, IconPlus, IconFile, IconUsers, IconList, IconPalette, IconMoney, IconChart, IconCard, IconSettings, IconBolt, IconWrench, IconPlay, IconWallet } from "@/components/icons";
 
 export const metadata = { title: "Painel", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 const titles: [string, string][] = [
   ["/painel/orcamentos/novo", "Novo orçamento"], ["/painel/orcamentos", "Orçamentos"], ["/painel/clientes", "Clientes"],
-  ["/painel/servicos", "Serviços e materiais"], ["/painel/marca", "Minha marca"], ["/painel/financeiro", "Financeiro"],
+  ["/painel/servicos", "Serviços e materiais"], ["/painel/marca", "Minha marca"], ["/painel/financeiro", "Financeiro"], ["/painel/gastos", "Controle de gastos"],
   ["/painel/relatorios", "Relatórios"], ["/painel/dimensionamento", "Calculadora de circuitos (NBR 5410)"], ["/painel/guia", "Guia de solução de problemas"], ["/painel/aulas", "Videoaulas"], ["/painel/assinatura", "Minha assinatura"], ["/painel/conta", "Minha conta"], ["/painel", "Início"],
 ];
 
@@ -29,6 +29,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     { href: "/painel/guia", label: "Guia de problemas", icon: <IconWrench /> },
     { href: "/painel/aulas", label: "Videoaulas", icon: <IconPlay />, locked: !hasFeature(access, "courses") },
     { href: "/painel/financeiro", label: "Financeiro", icon: <IconMoney />, locked: !hasFeature(access, "finance") },
+    { href: "/painel/gastos", label: "Controle de gastos", icon: <IconWallet />, locked: !hasFeature(access, "finance") },
     { href: "/painel/relatorios", label: "Relatórios", icon: <IconChart />, locked: !hasFeature(access, "reports") },
     { href: "/painel/assinatura", label: "Assinatura", icon: <IconCard /> },
     { href: "/painel/conta", label: "Minha conta", icon: <IconSettings /> },

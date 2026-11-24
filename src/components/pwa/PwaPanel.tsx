@@ -7,7 +7,7 @@ import { saveQuote } from "@/app/painel/orcamentos/actions";
 import { readQueue, removeFromQueue, markError, isNetworkError, EVENT, type QueuedQuote } from "@/lib/offline-queue";
 import { brl } from "@/lib/money";
 
-const WARM = ["/painel", "/painel/orcamentos", "/painel/orcamentos/novo", "/painel/clientes", "/painel/servicos", "/painel/servicos?tipo=material", "/painel/dimensionamento", "/painel/guia", "/painel/financeiro"];
+const WARM = ["/painel", "/painel/orcamentos", "/painel/orcamentos/novo", "/painel/clientes", "/painel/servicos", "/painel/servicos?tipo=material", "/painel/dimensionamento", "/painel/guia", "/painel/financeiro", "/painel/gastos"];
 
 export function PwaPanel({ userId }: { userId: string }) {
   const router = useRouter();

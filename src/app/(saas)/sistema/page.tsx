@@ -28,7 +28,8 @@ const rows: [string, (p: import("@prisma/client").Plan) => boolean | string][] =
   ["Histórico por cliente", (p) => p.featClientHistory],
   ["Status dos orçamentos", (p) => p.featStatus],
   ["Envio pelo WhatsApp com link", (p) => p.featWhatsapp],
-  ["Controle financeiro", (p) => p.featFinance],
+  ["Controle financeiro e divisão com ajudante", (p) => p.featFinance],
+  ["Controle de gastos (50/30/20 e reserva)", (p) => p.featFinance],
   ["Relatórios e indicadores", (p) => p.featReports],
   ["Videoaulas (em andamento)", (p) => p.featCourses],
 ];

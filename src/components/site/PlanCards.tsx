@@ -20,7 +20,8 @@ export function planFeatures(p: Plan) {
   if (p.featClientHistory) f.push("Histórico por cliente");
   if (p.featStatus) f.push("Controle de status (aprovado, recusado…)");
   if (p.featWhatsapp) f.push("Envio por WhatsApp com link");
-  if (p.featFinance) f.push("Controle financeiro");
+  if (p.featFinance) f.push("Controle financeiro e divisão com ajudante");
+  if (p.featFinance) f.push("Controle de gastos com regra 50/30/20 e reserva");
   if (p.featReports) f.push("Relatórios e indicadores");
   if (p.featCourses) f.push("Videoaulas para eletricistas (em andamento)");
   return f;

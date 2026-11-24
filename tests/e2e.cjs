@@ -136,10 +136,27 @@ async function makeQuote(p, client, beforeClick) {
     const r = await A.context().request.get(B + u); ok(r.status() === 200 && (await r.body()).subarray(0, 4).toString() === '%PDF', `PDF com várias linhas e emoji baixa normal (${u.startsWith('/o/') ? 'link do cliente' : 'painel'})`);
   }
 
+  // Controle de gastos: categorias padrão, planejado, lançar gasto, alerta e reflexo no financeiro
+  await A.goto(B + '/painel/gastos');
+  ok(Number(sql(`select count(*) from "BudgetCategory" where "userId"='${aId}'`)) >= 10, 'controle de gastos cria as categorias padrão na primeira visita');
+  await A.locator('summary:has-text("Energia")').first().click();
+  const den = A.locator('details:has(summary:has-text("Energia"))').first();
+  await den.locator('input[name=planned]').fill('100'); await den.locator('button:has-text("Salvar")').click(); await A.waitForTimeout(2000);
+  ok(sql(`select planned from "BudgetCategory" where "userId"='${aId}' and name='Energia'`) === '100.00', 'salva o valor planejado da categoria');
+  await A.selectOption('#categoryId', { label: 'Energia' }); await A.fill('#amount', '130'); await A.fill('#description', 'Conta de luz');
+  await A.click('button:has-text("Lançar gasto")'); await A.waitForTimeout(2500);
+  ok(sql(`select count(*) from "FinanceEntry" f join "BudgetCategory" c on c.id=f."categoryId" where f."userId"='${aId}' and c.name='Energia' and f.type='EXPENSE' and f.amount=130`) === '1', 'lançar gasto cria a saída com a categoria');
+  await A.reload(); ok(await A.isVisible('text=Energia: passou R$ 30,00 do planejado'), 'alerta quando a categoria passa do planejado');
+  ok(await A.isVisible('text=Regra 50/30/20') && await A.isVisible('text=Reserva de emergência'), 'mostra as fórmulas de economia (50/30/20 e reserva)');
+  await A.goto(B + '/painel/financeiro'); ok(await A.isVisible('text=Conta de luz'), 'gasto aparece também nos lançamentos do financeiro');
+
   // Isolamento: B não vê nada de A
   const Bp = await signup(b, 'Eletricista B', `b${t}@teste.local`);
   const r1 = await Bp.goto(B + '/painel/orcamentos/' + qid); ok(r1.status() === 404, 'B não abre orçamento de A (404)');
-  const r2 = await Bp.goto(B + `/painel/orcamentos/${qid}/pdf`); ok(r2.status() === 404, 'B não baixa PDF de A (404)');
+  const r2 = await Bp.goto(B + `/painel/orcamentos/${qid}/pdf`);
+  await Bp.goto(B + '/painel/gastos');
+  ok(!(await Bp.content()).includes('Conta de luz'), 'B não vê os gastos de A');
+ ok(r2.status() === 404, 'B não baixa PDF de A (404)');
   const cA = sql(`select id from "Client" where "userId"='${aId}' limit 1`);
   const r3 = await Bp.goto(B + '/painel/clientes/' + cA); ok(r3.status() === 404, 'B não abre cliente de A (404)');
   await Bp.goto(B + '/painel/servicos');
