@@ -1,11 +1,13 @@
 "use server";
 import { DEFAULT_QUOTE_TITLE } from "@/lib/quote-title";
+import { syncSplit } from "@/lib/split";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { getAccess, canCreateQuote, hasFeature } from "@/lib/access";
+import { getAccess, canCreateQuote, hasFeature, assertFeature } from "@/lib/access";
+import { parseForm, zOpt, type ActionState } from "@/lib/form";
 import { calcQuote } from "@/lib/quote-calc";
 import type { QuoteStatus } from "@prisma/client";
 
@@ -102,7 +104,7 @@ export async function duplicateQuote(fd: FormData) {
   const q = await owned(String(fd.get("id")), user.id);
   const newId = await prisma.$transaction(async (tx) => {
     const u = await tx.user.update({ where: { id: user.id }, data: { quoteCounter: { increment: 1 } }, select: { quoteCounter: true } });
-    const { id: _i, number: _n, shareToken: _s, status: _st, issuedAt: _a, sentAt: _b, viewedAt: _c, decidedAt: _d, createdAt: _e, updatedAt: _f, items, ...rest } = q;
+    const { id: _i, number: _n, shareToken: _s, status: _st, issuedAt: _a, sentAt: _b, viewedAt: _c, decidedAt: _d, createdAt: _e, updatedAt: _f, autoRejected: _g, helperName: _h, helperAmount: _ha, materialCost: _mc, items, ...rest } = q; // divisão e recusa não vão para a cópia
     const n = await tx.quote.create({ data: { ...rest, number: u.quoteCounter, items: { create: items.map(({ id: _x, quoteId: _y, ...it }) => it) } } });
     return n.id;
   });
@@ -135,10 +137,11 @@ export async function setStatus(fd: FormData) {
     await tx.quote.update({ where: { id }, data: { status, autoRejected: false, decidedAt: status === "SENT" ? null : now, ...(status === "SENT" ? { issuedAt: now } : {}) } });
     if (status === "APPROVED") {
       // Lançamento automático no financeiro (sem duplicar se já houver lançamento deste orçamento)
-      const exists = await tx.financeEntry.count({ where: { quoteId: id, userId: user.id } });
+      const exists = await tx.financeEntry.count({ where: { quoteId: id, userId: user.id, type: "INCOME" } });
       if (!exists && Number(q.total) > 0)
-        await tx.financeEntry.create({ data: { userId: user.id, quoteId: id, auto: true, type: "INCOME", amount: q.total, date: now,
+        await tx.financeEntry.create({ data: { userId: user.id, quoteId: id, auto: true, autoKind: "receita", type: "INCOME", amount: q.total, date: now,
           description: `Orçamento nº ${String(q.number).padStart(3, "0")} aprovado – ${q.clientName}`.slice(0, 150) } });
+      await syncSplit(tx, user.id, q, now); // saídas da divisão (ajudante/material), se já informadas
     } else {
       // Deixou de estar aprovado: remove só o lançamento automático (os manuais ficam)
       await tx.financeEntry.deleteMany({ where: { quoteId: id, userId: user.id, auto: true } });
@@ -153,4 +156,25 @@ export async function markShared(id: string) {
   const q = await owned(id, user.id);
   if (q.status === "DRAFT") return;
   await prisma.quote.update({ where: { id }, data: { sentAt: new Date() } });
+}
+
+const zMoneyOpt = z.string().optional().transform((v) => (v && v.trim() ? Number(v.replace(/\s|R\$/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) : 0))
+  .refine((n) => Number.isFinite(n) && n >= 0 && n < 1e8, "Valor inválido");
+
+/** Divisão do valor (só o eletricista vê): ajudante e custo de material. Lança as saídas no financeiro se aprovado. */
+export async function saveSplit(_: ActionState, fd: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  await assertFeature(user, "finance");
+  const p = parseForm(z.object({ id: z.string().min(1), helperName: zOpt(60), helperAmount: zMoneyOpt, materialCost: zMoneyOpt }), fd);
+  if (!p.ok) return p.error;
+  const { id, helperName, helperAmount, materialCost } = p.data;
+  const q = await owned(id, user.id);
+  const total = Number(q.total);
+  if (helperAmount + materialCost > total) return { error: "Confira os valores.", fields: { helperAmount: `Ajudante + material passam do total do orçamento (${total.toFixed(2).replace(".", ",")}).` } };
+  await prisma.$transaction(async (tx) => {
+    const upd = await tx.quote.update({ where: { id }, data: { helperName: helperName || null, helperAmount, materialCost } });
+    if (q.status === "APPROVED") await syncSplit(tx, user.id, upd, q.decidedAt ?? new Date());
+  });
+  revalidatePath(`/painel/orcamentos/${id}`); revalidatePath("/painel/financeiro"); revalidatePath("/painel/relatorios");
+  return { ok: true, message: "Divisão salva!" };
 }

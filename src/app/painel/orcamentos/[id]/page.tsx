@@ -1,4 +1,5 @@
 import { quoteSubject, quoteSections, NO_MATERIAL } from "@/lib/quote-title";
+import { SplitForm } from "@/components/panel/SplitForm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -71,6 +72,14 @@ export default async function Detalhe(
             <p className="flex justify-between pt-1 text-lg"><span className="font-bold text-navy">Total</span><b className="text-navy">{brl(q.total)}</b></p>
           </div>
         </section>
+        {q.status !== "DRAFT" && q.status !== "REJECTED" && (
+          <section className="card space-y-3 border-2 border-dashed border-brand/60">
+            <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-lg font-bold text-navy">Divisão do valor</p><span className="badge bg-light text-navy">🔒 só você vê</span></div>
+            {hasFeature(access, "finance")
+              ? <SplitForm id={q.id} total={toNum(q.total)} helperName={q.helperName} helperAmount={toNum(q.helperAmount)} materialCost={toNum(q.materialCost)} approved={q.status === "APPROVED"} />
+              : <p className="text-sm text-muted">Registre quanto foi para o ajudante e quanto ficou para você. Disponível nos planos com Financeiro. <Link href="/painel/assinatura" className="font-bold text-navy underline">Ver planos</Link></p>}
+          </section>
+        )}
         <div className="flex flex-wrap gap-2">
           {!locked && <Link href={`/painel/orcamentos/${q.id}/editar`} className="btn-navy btn-sm">Editar</Link>}
           <form action={duplicateQuote}><input type="hidden" name="id" value={q.id} /><button className="btn-outline btn-sm">Duplicar</button></form>
