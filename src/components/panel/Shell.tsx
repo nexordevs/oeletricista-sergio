@@ -5,10 +5,12 @@ import { useState } from "react";
 import { Logo } from "@/components/Logo";
 import { IconMenu, IconX, IconLogout } from "@/components/icons";
 import { usePanelTitle } from "./PageTitle";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import type { Theme } from "@/lib/theme";
 
 export type NavItem = { href: string; label: string; icon: React.ReactNode; locked?: boolean; exact?: boolean };
 
-export function Shell({ nav, mobileNav, user, titles, children, logout, banner }: { nav: NavItem[]; mobileNav: NavItem[]; user: string; titles: [string, string][]; children: React.ReactNode; logout: () => Promise<void>; banner?: React.ReactNode }) {
+export function Shell({ nav, mobileNav, user, titles, children, logout, banner, theme = "light" }: { nav: NavItem[]; mobileNav: NavItem[]; user: string; titles: [string, string][]; children: React.ReactNode; logout: () => Promise<void>; banner?: React.ReactNode; theme?: Theme }) {
   const path = usePathname();
   const title = usePanelTitle(titles, "Painel");
   const [open, setOpen] = useState(false);
@@ -24,11 +26,12 @@ export function Shell({ nav, mobileNav, user, titles, children, logout, banner }
     </nav>
   );
   return (
-    <div className="min-h-screen bg-light lg:pl-64">
+    <div data-theme-root data-theme={theme} className="min-h-screen bg-light lg:pl-64">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r-4 border-brand bg-navy lg:flex">
         <div className="px-5 py-5"><Logo dark size={36} /></div>
         <div className="flex-1 overflow-y-auto">{links}</div>
         <div className="border-t border-white/10 p-4">
+          <div className="mb-3"><ThemeToggle initial={theme} onDark compact /></div>
           <p className="truncate text-sm font-bold text-white">{user}</p>
           <form action={logout}><button className="mt-2 flex items-center gap-2 text-sm font-bold text-navy-soft hover:text-white"><IconLogout className="h-4 w-4" /> Sair</button></form>
         </div>
@@ -43,6 +46,7 @@ export function Shell({ nav, mobileNav, user, titles, children, logout, banner }
           <div className="absolute inset-y-0 right-0 flex w-72 flex-col bg-navy">
             <div className="flex items-center justify-between p-4"><span className="truncate font-bold text-white">{user}</span><button onClick={() => setOpen(false)} className="text-white" aria-label="Fechar"><IconX className="h-7 w-7" /></button></div>
             <div className="flex-1 overflow-y-auto">{links}</div>
+            <div className="border-t border-white/10 p-4"><ThemeToggle initial={theme} onDark /></div>
             <form action={logout} className="border-t border-white/10 p-4"><button className="flex items-center gap-2 font-bold text-navy-soft"><IconLogout className="h-4 w-4" /> Sair</button></form>
           </div>
         </div>

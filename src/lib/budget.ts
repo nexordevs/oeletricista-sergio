@@ -62,3 +62,36 @@ export function analyze(income: number, cats: CatInput[], reserveSaved: number, 
     groups, reserve: { goal, saved: r2(reserveSaved), monthly: r2(monthly), months, pct: goal > 0 ? Math.min(100, Math.round((reserveSaved / goal) * 100)) : 0 }, alerts,
   };
 }
+
+// ── Contas fixas (recorrência) ───────────────────────────────────────
+export type BillState = { kind: "paga" | "atrasada" | "vence-hoje" | "vence-logo" | "em-dia"; label: string; due: Date; daysTo: number };
+/** Situação da conta no mês (ano/mês 1-12). today = data atual (fuso de Brasília). */
+export function billStatus(dueDay: number, year: number, month: number, paid: boolean, today: Date): BillState {
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const day = Math.min(Math.max(1, dueDay), last);
+  const due = new Date(Date.UTC(year, month - 1, day));
+  const t = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const daysTo = Math.round((due.getTime() - t) / 864e5);
+  const dd = String(day).padStart(2, "0") + "/" + String(month).padStart(2, "0");
+  if (paid) return { kind: "paga", label: "Paga", due, daysTo };
+  if (daysTo < 0) return { kind: "atrasada", label: `Atrasada desde ${dd}`, due, daysTo };
+  if (daysTo === 0) return { kind: "vence-hoje", label: "Vence hoje", due, daysTo };
+  if (daysTo <= 5) return { kind: "vence-logo", label: `Vence em ${daysTo} ${daysTo === 1 ? "dia" : "dias"} (${dd})`, due, daysTo };
+  return { kind: "em-dia", label: `Vence ${dd}`, due, daysTo };
+}
+
+// ── Metas ────────────────────────────────────────────────────────────
+export type GoalPlan = { saved: number; target: number; missing: number; pct: number; done: boolean; monthsLeft: number | null; perMonth: number | null; late: boolean };
+/** Quanto falta e quanto guardar por mês até o prazo (contando o mês atual). */
+export function goalPlan(target: number, saved: number, deadline: Date | null, today: Date): GoalPlan {
+  const missing = r2(Math.max(0, target - saved));
+  const pct = target > 0 ? Math.min(100, Math.round((saved / target) * 100)) : 0;
+  const done = missing === 0 && target > 0;
+  let monthsLeft: number | null = null, perMonth: number | null = null, late = false;
+  if (deadline && !done) {
+    monthsLeft = (deadline.getUTCFullYear() - today.getUTCFullYear()) * 12 + (deadline.getUTCMonth() - today.getUTCMonth()) + 1;
+    if (monthsLeft <= 0) { late = true; monthsLeft = 0; }
+    else perMonth = r2(missing / monthsLeft);
+  }
+  return { saved: r2(saved), target: r2(target), missing, pct, done, monthsLeft, perMonth, late };
+}

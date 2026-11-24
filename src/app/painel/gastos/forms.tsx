@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useStickyAction, StickyForm } from "@/components/form-kit";
 import { Submit, FormMessage, Field } from "@/components/ui";
-import { saveCategory, addExpense } from "./actions";
+import { saveCategory, addExpense, saveBill, payBill, saveGoal, depositGoal } from "./actions";
 import { GROUPS, type Group } from "@/lib/budget";
 
 type Cat = { id: string; name: string };
@@ -49,6 +49,80 @@ export function CategoryForm({ c }: { c?: { id: string; name: string; planned: n
       </div>
       {c && s?.ok && <p className="text-xs font-bold text-green-700">✓ {s.message}</p>}
       {c && s?.error && <p className="text-xs font-bold text-red-700">{Object.values(s.fields || {})[0] || s.error}</p>}
+    </StickyForm>
+  );
+}
+
+// ── Contas fixas ─────────────────────────────────────────────────────
+export function BillForm({ cats, b }: { cats: Cat[]; b?: { id: string; name: string; amount: number; dueDay: number; categoryId: string | null } }) {
+  const [s, a, pending] = useStickyAction(saveBill);
+  const ref = useRef<HTMLFormElement>(null);
+  useEffect(() => { if (s?.ok && !b) ref.current?.reset(); }, [s, b]);
+  const k = b?.id ?? "nb";
+  return (
+    <StickyForm ref={ref} pending={pending} onSubmit={a} className="space-y-2" noValidate>
+      {b && <input type="hidden" name="id" value={b.id} />}
+      <FormMessage state={s} />
+      <div className="grid grid-cols-[1fr_110px_70px] gap-2">
+        <div><label className="text-[11px] font-bold uppercase text-muted" htmlFor={`bn${k}`}>Conta</label><input id={`bn${k}`} name="name" defaultValue={b?.name} className="input py-2" placeholder="Ex.: Energia" /></div>
+        <div><label className="text-[11px] font-bold uppercase text-muted" htmlFor={`ba${k}`}>Valor (R$)</label><input id={`ba${k}`} name="amount" inputMode="decimal" defaultValue={b ? fmt(b.amount) : ""} className="input py-2 text-right" placeholder="0,00" /></div>
+        <div><label className="text-[11px] font-bold uppercase text-muted" htmlFor={`bd${k}`}>Dia</label><input id={`bd${k}`} name="dueDay" inputMode="numeric" defaultValue={b?.dueDay ?? ""} className="input py-2 text-center" placeholder="10" /></div>
+      </div>
+      <div className="flex items-center gap-2">
+        <select name="categoryId" aria-label="Categoria da conta" defaultValue={b?.categoryId ?? ""} className="input w-auto flex-1 py-2 text-sm"><option value="">Sem categoria</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+        <Submit className="btn-navy btn-sm" pending="...">{b ? "Salvar" : "Criar conta"}</Submit>
+      </div>
+    </StickyForm>
+  );
+}
+
+export function PayBillForm({ id, amount, today }: { id: string; amount: number; today: string }) {
+  const [s, a, pending] = useStickyAction(payBill);
+  return (
+    <StickyForm pending={pending} onSubmit={a} className="flex flex-wrap items-center justify-end gap-2" noValidate>
+      <input type="hidden" name="id" value={id} /><input type="hidden" name="date" value={today} />
+      <label className="sr-only" htmlFor={`pay${id}`}>Valor pago</label>
+      <input id={`pay${id}`} name="amount" inputMode="decimal" defaultValue={fmt(amount)} className="input w-24 py-1.5 text-right text-sm" />
+      <Submit className="btn-primary btn-sm" pending="...">Pagar</Submit>
+      {s?.error && <p className="w-full text-right text-xs font-bold text-red-700">{Object.values(s.fields || {})[0] || s.error}</p>}
+    </StickyForm>
+  );
+}
+
+// ── Metas ────────────────────────────────────────────────────────────
+export function GoalForm({ g }: { g?: { id: string; name: string; target: number; deadline: string } }) {
+  const [s, a, pending] = useStickyAction(saveGoal);
+  const ref = useRef<HTMLFormElement>(null);
+  useEffect(() => { if (s?.ok && !g) ref.current?.reset(); }, [s, g]);
+  const k = g?.id ?? "ng";
+  return (
+    <StickyForm ref={ref} pending={pending} onSubmit={a} className="space-y-2" noValidate>
+      {g && <input type="hidden" name="id" value={g.id} />}
+      <FormMessage state={s} />
+      <div><label className="text-[11px] font-bold uppercase text-muted" htmlFor={`gn${k}`}>Meta</label><input id={`gn${k}`} name="name" defaultValue={g?.name} className="input py-2" placeholder="Ex.: Furadeira nova, moto, viagem" /></div>
+      <div className="grid grid-cols-2 gap-2">
+        <div><label className="text-[11px] font-bold uppercase text-muted" htmlFor={`gt${k}`}>Valor da meta (R$)</label><input id={`gt${k}`} name="target" inputMode="decimal" defaultValue={g ? fmt(g.target) : ""} className="input py-2 text-right" placeholder="0,00" /></div>
+        <div><label className="text-[11px] font-bold uppercase text-muted" htmlFor={`gd${k}`}>Até quando (opcional)</label><input id={`gd${k}`} name="deadline" type="date" defaultValue={g?.deadline ?? ""} className="input py-2" /></div>
+      </div>
+      <Submit className="btn-navy btn-sm w-full" pending="...">{g ? "Salvar meta" : "Criar meta"}</Submit>
+    </StickyForm>
+  );
+}
+
+export function DepositForm({ id, today, suggestion }: { id: string; today: string; suggestion: number | null }) {
+  const [s, a, pending] = useStickyAction(depositGoal);
+  const [v, setV] = useState(suggestion ? fmt(suggestion) : "");
+  useEffect(() => { if (s?.ok) setV(""); }, [s]);
+  return (
+    <StickyForm pending={pending} onSubmit={a} className="space-y-1" noValidate>
+      <input type="hidden" name="id" value={id} /><input type="hidden" name="date" value={today} />
+      <div className="flex items-center gap-2">
+        <label className="sr-only" htmlFor={`dep${id}`}>Valor guardado</label>
+        <input id={`dep${id}`} name="amount" inputMode="decimal" value={v} onChange={(e) => setV(e.target.value)} className="input flex-1 py-2 text-right" placeholder="Quanto guardou? (R$)" />
+        <Submit className="btn-primary btn-sm" pending="...">Guardar</Submit>
+      </div>
+      {s?.ok && <p className="text-xs font-bold text-green-700">{s.message}</p>}
+      {s?.error && <p className="text-xs font-bold text-red-700">{Object.values(s.fields || {})[0] || s.error}</p>}
     </StickyForm>
   );
 }

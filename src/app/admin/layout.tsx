@@ -1,3 +1,4 @@
+import { getTheme } from "@/lib/theme";
 import { Shell, type NavItem } from "@/components/panel/Shell";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { requireAdmin } from "@/lib/auth";
@@ -30,5 +31,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/solicitacoes", label: "Pedidos", icon: <IconInbox className="h-5 w-5" /> },
     { href: "/admin/site", label: "Site", icon: <IconSettings className="h-5 w-5" /> },
   ];
-  return <Shell nav={nav} mobileNav={mobileNav} user={u.name} titles={titles} logout={logout}><AutoRefresh seconds={30} />{children}</Shell>;
+  return <Shell nav={nav} mobileNav={mobileNav} user={u.name} titles={titles} logout={logout} theme={await getTheme()}><AutoRefresh seconds={30} />{children}</Shell>;
 }

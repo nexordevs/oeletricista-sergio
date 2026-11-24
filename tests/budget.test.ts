@@ -35,3 +35,22 @@ test("sem renda não acusa 50/30/20", () => {
   assert.ok(a.groups.every((g) => g.status === "ok"));
   assert.equal(a.spentPct, 0);
 });
+
+import { billStatus, goalPlan } from "../src/lib/budget";
+const d = (s: string) => new Date(s + "T12:00:00Z");
+
+test("conta fixa: paga, atrasada, vence hoje, vence logo e em dia", () => {
+  assert.equal(billStatus(10, 2026, 11, true, d("2026-11-20")).kind, "paga");
+  assert.equal(billStatus(10, 2026, 11, false, d("2026-11-20")).kind, "atrasada");
+  assert.equal(billStatus(20, 2026, 11, false, d("2026-11-20")).kind, "vence-hoje");
+  assert.equal(billStatus(23, 2026, 11, false, d("2026-11-20")).label, "Vence em 3 dias (23/11)");
+  assert.equal(billStatus(28, 2026, 12, false, d("2026-11-20")).kind, "em-dia");
+  assert.equal(billStatus(31, 2027, 2, false, d("2026-11-20")).due.getUTCDate(), 28); // fevereiro: último dia
+});
+
+test("meta: falta, % e quanto guardar por mês até o prazo", () => {
+  const g = goalPlan(1500, 300, d("2027-04-15"), d("2026-11-20")); // nov..abr = 6 meses
+  assert.equal(g.missing, 1200); assert.equal(g.pct, 20); assert.equal(g.monthsLeft, 6); assert.equal(g.perMonth, 200);
+  assert.ok(goalPlan(1000, 1000, null, d("2026-11-20")).done);
+  assert.ok(goalPlan(1000, 100, d("2026-10-01"), d("2026-11-20")).late);
+});

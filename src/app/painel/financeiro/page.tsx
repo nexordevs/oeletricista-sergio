@@ -73,9 +73,9 @@ export default async function Financeiro(props: { searchParams: Promise<{ m?: st
       <div className="space-y-4">
         {nav}
         <div className="grid grid-cols-3 gap-3">
-          <div className="card"><p className="text-xs font-bold uppercase text-muted">Entradas</p><p className="text-xl font-bold text-green-700">{brl(inc)}</p></div>
-          <div className="card"><p className="text-xs font-bold uppercase text-muted">Saídas</p><p className="text-xl font-bold text-red-700">{brl(exp)}</p></div>
-          <div className="card border-l-4 border-l-brand"><p className="text-xs font-bold uppercase text-muted">Saldo</p><p className="text-xl font-bold text-navy">{brl(inc - exp)}</p></div>
+          <div className="card"><p className="text-xs font-bold uppercase text-muted">Entradas</p><p className="whitespace-nowrap text-base sm:text-xl font-bold text-green-700">{brl(inc)}</p></div>
+          <div className="card"><p className="text-xs font-bold uppercase text-muted">Saídas</p><p className="whitespace-nowrap text-base sm:text-xl font-bold text-red-700">{brl(exp)}</p></div>
+          <div className="card border-l-4 border-l-brand"><p className="text-xs font-bold uppercase text-muted">Saldo</p><p className="whitespace-nowrap text-base sm:text-xl font-bold text-navy">{brl(inc - exp)}</p></div>
         </div>
         {entries.length === 0 ? <div className="card text-center text-muted">Nenhum lançamento neste mês.</div> : (
           <ul className="card divide-y divide-line p-0">{entries.map((e) => (

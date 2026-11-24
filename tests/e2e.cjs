@@ -147,8 +147,35 @@ async function makeQuote(p, client, beforeClick) {
   await A.click('button:has-text("Lançar gasto")'); await A.waitForTimeout(2500);
   ok(sql(`select count(*) from "FinanceEntry" f join "BudgetCategory" c on c.id=f."categoryId" where f."userId"='${aId}' and c.name='Energia' and f.type='EXPENSE' and f.amount=130`) === '1', 'lançar gasto cria a saída com a categoria');
   await A.reload(); ok(await A.isVisible('text=Energia: passou R$ 30,00 do planejado'), 'alerta quando a categoria passa do planejado');
-  ok(await A.isVisible('text=Regra 50/30/20') && await A.isVisible('text=Reserva de emergência'), 'mostra as fórmulas de economia (50/30/20 e reserva)');
+  ok(await A.isVisible('text=Regra 50/30/20') && await A.isVisible('p:text-is("Reserva de emergência")'), 'mostra as fórmulas de economia (50/30/20 e reserva)');
   await A.goto(B + '/painel/financeiro'); ok(await A.isVisible('text=Conta de luz'), 'gasto aparece também nos lançamentos do financeiro');
+
+  // Contas fixas (recorrência), metas, gráficos
+  await A.goto(B + '/painel/gastos');
+  const nb = A.locator('details:has(summary:has-text("Nova conta fixa"))'); if ((await nb.getAttribute('open')) === null) await nb.locator('summary').click();
+  await nb.locator('input[name=name]').fill('Aluguel teste'); await nb.locator('input[name=amount]').fill('500'); await nb.locator('input[name=dueDay]').fill('1');
+  await nb.locator('button:has-text("Criar conta")').click(); await A.waitForTimeout(2000);
+  ok(sql(`select "dueDay"||':'||amount from "RecurringBill" where "userId"='${aId}' and name='Aluguel teste'`) === '1:500.00', 'cria conta fixa com dia de vencimento');
+  const today = Number(sql(`select extract(day from now() - interval '3 hours')`));
+  ok(await A.isVisible(`li:has(b:text-is("Aluguel teste")) .badge:has-text("${today > 1 ? 'Atrasada' : 'Vence hoje'}")`), 'conta fixa mostra a situação do mês (atrasada / vence hoje)');
+  await A.locator('li:has(b:text-is("Aluguel teste")) button:has-text("Pagar")').click(); await A.waitForTimeout(2000);
+  ok(sql(`select count(*) from "FinanceEntry" f join "RecurringBill" r on r.id=f."recurringId" where r.name='Aluguel teste' and r."userId"='${aId}' and f.type='EXPENSE'`) === '1' && await A.isVisible('li:has(b:text-is("Aluguel teste")) .badge:has-text("Paga")'), 'pagar conta fixa lança a saída e marca como paga');
+  const billId = sql(`select id from "RecurringBill" where "userId"='${aId}' and name='Aluguel teste'`);
+  ok((await A.evaluate(async (id) => { const r = await fetch(location.href); return r.ok; }, billId)) && sql(`select count(*) from "FinanceEntry" where "recurringId"='${billId}'`) === '1', 'conta paga não é lançada duas vezes no mês');
+  const ng = A.locator('details:has(summary:has-text("Nova meta"))'); if ((await ng.getAttribute('open')) === null) await ng.locator('summary').click();
+  await ng.locator('input[name=name]').fill('Furadeira teste'); await ng.locator('input[name=target]').fill('1000'); await ng.locator('button:has-text("Criar meta")').click(); await A.waitForTimeout(2000);
+  await A.locator('li:has(b:has-text("Furadeira teste")) input[name=amount]').fill('250'); await A.locator('li:has(b:has-text("Furadeira teste")) button:has-text("Guardar")').click(); await A.waitForTimeout(2000);
+  ok(await A.isVisible('li:has(b:has-text("Furadeira teste")) >> text=faltam R$ 750,00'), 'meta mostra quanto guardou e quanto falta (25%)');
+  ok(sql(`select count(*) from "FinanceEntry" f join "SavingsGoal" g on g.id=f."goalId" where g.name='Furadeira teste' and g."userId"='${aId}' and f.amount=250`) === '1', 'guardar na meta registra o depósito');
+  ok(await A.isVisible('text=Para onde foi o dinheiro') && await A.isVisible('svg[aria-label="Entrou, gastou e guardou por mês"]'), 'mostra os gráficos (para onde foi o dinheiro e últimos 6 meses)');
+  // Tema escuro: escolhido no painel, vale no login e some do site público
+  await A.locator('button:has-text("Escuro"):visible').first().click().catch(async () => { await A.click('button[aria-label="Abrir menu"]'); await A.locator('button:has-text("Escuro"):visible').click(); });
+  await A.reload();
+  ok(await A.getAttribute('[data-theme-root]', 'data-theme') === 'dark', 'tema escuro fica salvo e vale ao recarregar o painel');
+  const anon2 = await (await b.newContext()).newPage(); await anon2.context().addCookies([{ name: 'tema', value: 'escuro', url: B }]);
+  await anon2.goto(B + '/entrar'); ok(await anon2.getAttribute('[data-theme-root]', 'data-theme') === 'dark' && await anon2.isVisible('button:has-text("Claro")'), 'tela de login tem a escolha de tema e respeita o escuro');
+  await anon2.goto(B + '/'); ok((await anon2.locator('[data-theme="dark"]').count()) === 0, 'site público continua claro');
+  await A.locator('button:has-text("Claro"):visible').first().click().catch(async () => { await A.click('button[aria-label="Abrir menu"]'); await A.locator('button:has-text("Claro"):visible').click(); });
 
   // Isolamento: B não vê nada de A
   const Bp = await signup(b, 'Eletricista B', `b${t}@teste.local`);
