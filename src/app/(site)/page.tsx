@@ -110,7 +110,7 @@ export default async function Home() {
 
       {/* AVALIAÇÕES */}
       {(testimonials.length > 0 || s.googleReviewUrl) && (
-        <section id="depoimentos" className="bg-navy py-14 text-white">
+        <section id="depoimentos" className="scroll-mt-20 bg-navy py-14 text-white">
           <div className="container-x">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
               <div>
@@ -135,7 +135,7 @@ export default async function Home() {
       )}
 
       {/* PERGUNTAS + REGIÃO */}
-      <section className="container-x py-16">
+      <section id="duvidas" className="container-x scroll-mt-20 py-16">
         {faq.length > 0 && (
           <>
             <h2 className="section-title">Perguntas frequentes</h2><div className="section-bar" />
