@@ -224,6 +224,32 @@ async function makeQuote(p, client, beforeClick) {
   // Lead do site chega no admin
   await anon.goto(B + '/orcamento'); await anon.fill('#name', 'Maria Teste'); await anon.fill('#phone', '83999998888'); await anon.fill('#neighborhood', 'Manaíra');
   await anon.selectOption('#service', { index: 1 }); await anon.click('button:has-text("Enviar solicitação")'); await anon.waitForSelector('text=Continuar no WhatsApp');
+  // Mentoria de estudos (só administrador)
+  const admId = sql(`select id from "User" where email='admin@teste.local'`);
+  sql(`delete from "StudyTask" where "userId"='${admId}'; delete from "StudySubject" where "userId"='${admId}'; delete from "StudyPlan" where "userId"='${admId}'`);
+  await adm.goto(B + '/admin/mentoria');
+  ok(Number(sql(`select count(*) from "StudySubject" where "userId"='${admId}'`)) >= 10 && await adm.isVisible('text=PMPB'), 'mentoria cria o plano PMPB com as matérias do edital');
+  await adm.click('button:has-text("Gerar 7 dias")'); await adm.waitForTimeout(3000);
+  const gerou = Number(sql(`select count(*) from "StudyTask" where "userId"='${admId}' and kind='TEORIA'`));
+  ok(gerou >= 12, `gera o cronograma dos próximos 7 dias (${gerou} blocos de teoria)`);
+  await adm.click('button:has-text("Gerar 7 dias")'); await adm.waitForTimeout(2500);
+  ok(Number(sql(`select count(*) from "StudyTask" where "userId"='${admId}' and kind='TEORIA'`)) === gerou, 'gerar de novo não duplica os dias que já têm tarefas');
+  const hoje = adm.locator('section:has(p:has-text("O que estudar hoje")) li:has(button:has-text("Estudei"))');
+  if (await hoje.count()) {
+    const tId = sql(`select id from "StudyTask" where "userId"='${admId}' and kind='TEORIA' and date::date=(now() - interval '3 hours')::date order by "createdAt" limit 1`);
+    const row = hoje.first(); await row.locator('button:has-text("+ questões")').click(); await row.locator('input[name=questions]').fill('10'); await row.locator('input[name=correct]').fill('7');
+    await row.locator('button:has-text("Estudei")').click(); await adm.waitForTimeout(2500);
+    ok(sql(`select status||':'||questions||':'||correct from "StudyTask" where id='${tId}'`) === 'FEITO:10:7', 'marcar como estudado salva questões e acertos');
+    ok(sql(`select count(*) from "StudyTask" where "userId"='${admId}' and kind='REVISAO'`) === '3', 'estudar um assunto agenda as revisões (1, 7 e 15 dias)');
+  } else ok(true, 'hoje é dia de descanso no plano (sem tarefas para concluir)');
+  const nextId = sql(`select id from "StudyTask" where "userId"='${admId}' and status='PENDENTE' and kind='TEORIA' order by date desc limit 1`);
+  sql(`update "StudyTask" set date = date - interval '20 days' where id='${nextId}'`);
+  await adm.reload(); ok(await adm.isVisible('text=tarefa atrasada') || await adm.isVisible('text=tarefas atrasadas'), 'tarefa não feita aparece como atrasada');
+  await adm.click('button:has-text("Reprogramar (2 por dia)")'); await adm.waitForTimeout(2500);
+  ok(sql(`select (date::date > (now() - interval '3 hours')::date)::text||':'||"rescheduledCount" from "StudyTask" where id='${nextId}'`) === 'true:1', 'reprogramar atrasadas joga para os próximos dias de estudo');
+  const pA = await (await b.newContext()).newPage(); await pA.goto(B + '/entrar'); await pA.fill('#email', `a${t}@teste.local`); await pA.fill('#password', 'Senha12345'); await pA.click('button[type=submit]'); await pA.waitForURL(/painel/);
+  await pA.goto(B + '/admin/mentoria'); ok(!pA.url().includes('/admin/mentoria'), 'eletricista comum não acessa a mentoria (vai para o início)');
+
   await adm.goto(B + '/admin/solicitacoes'); ok(await adm.isVisible('text=Maria Teste'), 'solicitação do site aparece no admin');
   const lead = adm.locator('div.card', { hasText: 'Maria Teste' }).first();
   await lead.locator('button:has-text("Em contato")').click(); await adm.waitForTimeout(2500);

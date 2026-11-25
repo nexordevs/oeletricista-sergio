@@ -29,10 +29,10 @@ body { @apply bg-white text-ink antialiased; }
 
 /* ───────────── Tema escuro (painel, admin e login) ─────────────
    Aplicado por data-theme="dark" no contêiner do app; o site público e o orçamento do cliente ficam sempre claros. */
-.viz { --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --grid: #e6ebf0; --axis: #5b6b7d; }
+.viz { --surface: #ffffff; --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --grid: #e6ebf0; --axis: #5b6b7d; }
 .viz .viz-group:hover .viz-mark { opacity: 0.85; }
 [data-theme="dark"] { color-scheme: dark; color: #e6edf5; }
-[data-theme="dark"] .viz { --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --grid: #24384f; --axis: #93a4b8; }
+[data-theme="dark"] .viz { --surface: #13233a; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --grid: #24384f; --axis: #93a4b8; }
 [data-theme="dark"].bg-light, [data-theme="dark"] .bg-light { background-color: #0b1625; }
 [data-theme="dark"] .bg-white, [data-theme="dark"] .card, [data-theme="dark"] .input, [data-theme="dark"] .btn-outline, [data-theme="dark"] .btn-danger { background-color: #13233a; }
 [data-theme="dark"] .btn-navy, [data-theme="dark"] nav .bg-navy, [data-theme="dark"] nav .bg-navy:hover { background-color: #2b5285; }

@@ -47,20 +47,20 @@ export function MonthsChart({ months }: { months: { label: string; entrou: numbe
   const max = Math.max(1, ...months.flatMap((m) => [m.entrou, m.gastou, m.guardou]));
   const step = [100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000].find((s) => max / s <= 4) ?? 100000;
   const top = Math.ceil(max / step) * step;
-  const W = 600, H = 240, L = 54, B = 26, T = 10, R = 6;
+  const W = 400, H = 230, L = 50, B = 24, T = 10, R = 4; // largura pensada para o celular
   const plotW = W - L - R, plotH = H - T - B;
-  const gw = plotW / months.length, bw = Math.min(26, (gw - 16) / 3);
+  const gw = plotW / months.length, bw = Math.min(16, (gw - 10) / 3);
   const y = (v: number) => T + plotH - (v / top) * plotH;
   const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
   if (months.every((m) => !m.entrou && !m.gastou && !m.guardou)) return <p className="text-sm text-muted">Ainda não há movimentação nos últimos meses.</p>;
   return (
     <div className="viz">
       <div className="mb-2 flex flex-wrap gap-4 text-sm">{series.map((s) => <span key={s.key} className="flex items-center gap-1.5 text-ink"><span className="h-3 w-3 rounded-sm" style={{ background: s.color }} />{s.name}</span>)}</div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Entrou, gastou e guardou por mês">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[640px]" role="img" aria-label="Entrou, gastou e guardou por mês">
         {ticks.map((t) => (
           <g key={t}>
             <line x1={L} x2={W - R} y1={y(t)} y2={y(t)} stroke="var(--grid)" strokeWidth={1} />
-            <text x={L - 8} y={y(t) + 4} textAnchor="end" fontSize={11} fill="var(--axis)">{t === 0 ? "0" : `R$ ${k(t)}`}</text>
+            <text x={L - 6} y={y(t) + 4} textAnchor="end" fontSize={12} fill="var(--axis)">{t === 0 ? "0" : `R$ ${k(t)}`}</text>
           </g>
         ))}
         {months.map((m, i) => {
@@ -73,7 +73,7 @@ export function MonthsChart({ months }: { months: { label: string; entrou: numbe
                 const h = Math.max(v > 0 ? 2 : 0, plotH - (y(v) - T));
                 return <path key={s.key} className="viz-mark" pointerEvents="none" fill={s.color} d={bar(gx + j * (bw + 2), T + plotH - h, bw, h)} />;
               })}
-              <text x={L + i * gw + gw / 2} y={H - 8} textAnchor="middle" fontSize={12} fill="var(--axis)">{m.label}</text>
+              <text x={L + i * gw + gw / 2} y={H - 8} textAnchor="middle" fontSize={13} fill="var(--axis)">{m.label}</text>
             </g>
           );
         })}

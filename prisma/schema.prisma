@@ -102,6 +102,9 @@ model User {
   budgetCategories BudgetCategory[]
   recurringBills RecurringBill[]
   savingsGoals   SavingsGoal[]
+  studyPlan      StudyPlan?
+  studySubjects  StudySubject[]
+  studyTasks     StudyTask[]
   quoteCounter  Int                  @default(0)
 }
 
@@ -533,4 +536,79 @@ model SavingsGoal {
   deposits  FinanceEntry[]
 
   @@index([userId])
+}
+
+// ─────────────── Mentoria de estudos (só administrador) ───────────────
+enum StudyKind {
+  TEORIA
+  QUESTOES
+  REVISAO
+  SIMULADO
+}
+
+enum StudyStatus {
+  PENDENTE
+  FEITO
+}
+
+model StudyPlan {
+  userId          String    @id
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String    @default("PMPB – Soldado")
+  examDate        DateTime?
+  dailyMinutes    Int       @default(180)
+  blockMinutes    Int       @default(60)
+  weeklyQuestions Int       @default(300)
+  studyDays       String    @default("1,2,3,4,5,6") // 0 = domingo
+  reviewDays      String    @default("1,7,15")      // revisões depois de estudar o assunto
+  simuladoEvery   Int       @default(15)            // simulado a cada X dias
+  startDate       DateTime  @default(now())
+}
+
+model StudySubject {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  weight    Int          @default(5) // nº de questões na prova (define a frequência no ciclo)
+  sortOrder Int          @default(0)
+  topics    StudyTopic[]
+  tasks     StudyTask[]
+
+  @@index([userId])
+}
+
+model StudyTopic {
+  id        String       @id @default(cuid())
+  subjectId String
+  subject   StudySubject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  name      String
+  sortOrder Int          @default(0)
+  studiedAt DateTime?
+  tasks     StudyTask[]
+
+  @@index([subjectId])
+}
+
+model StudyTask {
+  id               String        @id @default(cuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date             DateTime      // dia (12:00 UTC)
+  kind             StudyKind
+  subjectId        String?
+  subject          StudySubject? @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  topicId          String?
+  topic            StudyTopic?   @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  title            String
+  minutes          Int           @default(60)
+  status           StudyStatus   @default(PENDENTE)
+  doneAt           DateTime?
+  questions        Int?
+  correct          Int?
+  originalDate     DateTime?
+  rescheduledCount Int           @default(0)
+  createdAt        DateTime      @default(now())
+
+  @@index([userId, date])
 }

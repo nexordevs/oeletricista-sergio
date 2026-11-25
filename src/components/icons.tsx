@@ -17,6 +17,7 @@ export const IconPalette = s("M12 22a10 10 0 1 1 10-10c0 2.8-2.2 4-4 4h-2a2 2 0 
 export const IconCard = s("M2 5h20v14H2zM2 10h20");
 export const IconChart = s("M3 3v18h18M7 15l4-4 3 3 5-6");
 export const IconWallet = s("M3 7a2 2 0 0 1 2-2h13v4M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2zM16 14h.01");
+export const IconBook = s("M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5M9 7h7M9 11h5");
 export const IconMoney = s("M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6");
 export const IconLogout = s("M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9");
 export const IconMenu = s("M3 6h18M3 12h18M3 18h18");
