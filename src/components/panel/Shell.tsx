@@ -8,7 +8,7 @@ import { usePanelTitle } from "./PageTitle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import type { Theme } from "@/lib/theme";
 
-export type NavItem = { href: string; label: string; icon: React.ReactNode; locked?: boolean; exact?: boolean };
+export type NavItem = { href: string; label: string; icon: React.ReactNode; locked?: boolean; exact?: boolean; group?: string };
 
 export function Shell({ nav, mobileNav, user, titles, children, logout, banner, theme = "light" }: { nav: NavItem[]; mobileNav: NavItem[]; user: string; titles: [string, string][]; children: React.ReactNode; logout: () => Promise<void>; banner?: React.ReactNode; theme?: Theme }) {
   const path = usePathname();
@@ -16,12 +16,15 @@ export function Shell({ nav, mobileNav, user, titles, children, logout, banner, 
   const [open, setOpen] = useState(false);
   const active = (n: NavItem) => (n.exact ? path === n.href : path === n.href || path.startsWith(n.href + "/"));
   const links = (
-    <nav className="flex flex-col gap-1 p-3">
-      {nav.map((n) => (
-        <Link key={n.href} href={n.href} onClick={() => setOpen(false)}
-          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-bold transition ${active(n) ? "bg-brand text-navy" : "text-navy-soft hover:bg-white/5 hover:text-white"}`}>
-          {n.icon}<span className="flex-1">{n.label}</span>{n.locked && <span className="badge bg-white/10 text-[10px] text-navy-soft">PLANO</span>}
-        </Link>
+    <nav className="flex flex-col gap-0.5 p-3">
+      {nav.map((n, i) => (
+        <div key={n.href}>
+          {n.group && n.group !== nav[i - 1]?.group && <p className={`px-3 pb-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-brand/80 ${i > 0 ? "mt-4 border-t border-white/10 pt-4" : "pt-1"}`}>{n.group}</p>}
+          <Link href={n.href} onClick={() => setOpen(false)}
+            className={`flex items-center gap-3 rounded-xl px-3 py-2 text-[15px] font-bold transition [&_svg]:h-[18px] [&_svg]:w-[18px] ${active(n) ? "bg-brand text-navy" : "text-navy-soft hover:bg-white/5 hover:text-white"}`}>
+            {n.icon}<span className="flex-1">{n.label}</span>{n.locked && <span className="badge bg-white/10 text-[10px] text-navy-soft">PLANO</span>}
+          </Link>
+        </div>
       ))}
     </nav>
   );
@@ -31,9 +34,11 @@ export function Shell({ nav, mobileNav, user, titles, children, logout, banner, 
         <div className="px-5 py-5"><Logo dark size={36} /></div>
         <div className="flex-1 overflow-y-auto">{links}</div>
         <div className="border-t border-white/10 p-4">
-          <div className="mb-3"><ThemeToggle initial={theme} onDark compact /></div>
-          <p className="truncate text-sm font-bold text-white">{user}</p>
-          <form action={logout}><button className="mt-2 flex items-center gap-2 text-sm font-bold text-navy-soft hover:text-white"><IconLogout className="h-4 w-4" /> Sair</button></form>
+          <ThemeToggle initial={theme} onDark compact />
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <p className="flex min-w-0 items-center gap-2 text-sm font-bold text-white"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-xs text-navy">{user.trim().charAt(0).toUpperCase()}</span><span className="truncate">{user}</span></p>
+            <form action={logout}><button className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-bold text-navy-soft hover:bg-white/5 hover:text-white"><IconLogout className="h-4 w-4" /> Sair</button></form>
+          </div>
         </div>
       </aside>
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b-[3px] border-brand bg-navy px-4 lg:hidden">

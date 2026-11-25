@@ -11,21 +11,23 @@ const titles: [string, string][] = [["/admin/mentoria", "Mentoria de estudos"], 
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const u = await requireAdmin();
+  // menu em grupos: estudos, assinantes do sistema, site e o próprio painel de orçamentos
   const nav: NavItem[] = [
     { href: "/admin", label: "Visão geral", icon: <IconHome />, exact: true },
-    { href: "/admin/mentoria", label: "Mentoria PMPB", icon: <IconBook /> },
-    { href: "/admin/usuarios", label: "Usuários", icon: <IconUsers /> },
-    { href: "/admin/pagamentos", label: "Pagamentos", icon: <IconCard /> },
-    { href: "/admin/planos", label: "Planos", icon: <IconFile /> },
-    { href: "/admin/biblioteca", label: "Biblioteca de serviços", icon: <IconList /> },
-    { href: "/admin/aulas", label: "Videoaulas", icon: <IconPlay /> },
-    { href: "/admin/solicitacoes", label: "Solicitações do site", icon: <IconInbox /> },
-    { href: "/admin/portfolio", label: "Portfólio (fotos)", icon: <IconImage /> },
-    { href: "/admin/servicos", label: "Serviços anunciados", icon: <IconBolt /> },
-    { href: "/admin/depoimentos", label: "Depoimentos", icon: <IconStar /> },
-    { href: "/admin/site", label: "Textos do site", icon: <IconSettings /> },
-    { href: "/painel", label: "Meu painel de orçamentos", icon: <IconFile /> },
+    { href: "/admin/mentoria", label: "Mentoria PMPB", icon: <IconBook />, group: "Estudos" },
+    { href: "/admin/usuarios", label: "Usuários", icon: <IconUsers />, group: "Assinantes" },
+    { href: "/admin/pagamentos", label: "Pagamentos", icon: <IconCard />, group: "Assinantes" },
+    { href: "/admin/planos", label: "Planos", icon: <IconFile />, group: "Assinantes" },
+    { href: "/admin/biblioteca", label: "Biblioteca de preços", icon: <IconList />, group: "Assinantes" },
+    { href: "/admin/aulas", label: "Videoaulas", icon: <IconPlay />, group: "Assinantes" },
+    { href: "/admin/solicitacoes", label: "Pedidos de orçamento", icon: <IconInbox />, group: "Meu site" },
+    { href: "/admin/portfolio", label: "Portfólio", icon: <IconImage />, group: "Meu site" },
+    { href: "/admin/servicos", label: "Serviços", icon: <IconBolt />, group: "Meu site" },
+    { href: "/admin/depoimentos", label: "Depoimentos", icon: <IconStar />, group: "Meu site" },
+    { href: "/admin/site", label: "Textos e contatos", icon: <IconSettings />, group: "Meu site" },
+    { href: "/painel", label: "Painel de orçamentos", icon: <IconFile />, group: "Meu trabalho" },
   ];
+
   const mobileNav: NavItem[] = [
     { href: "/admin", label: "Geral", icon: <IconHome className="h-5 w-5" />, exact: true },
     { href: "/admin/usuarios", label: "Usuários", icon: <IconUsers className="h-5 w-5" /> },
