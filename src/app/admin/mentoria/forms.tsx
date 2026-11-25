@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useStickyAction, StickyForm } from "@/components/form-kit";
 import { Submit, FormMessage, Field } from "@/components/ui";
-import { savePlan, completeTask, addTask, saveSubject, addTopic, rescheduleTask } from "./actions";
+import { savePlan, completeTask, addTask, saveSubject, addTopic, rescheduleTask, addQuestionLog } from "./actions";
 
 const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -110,6 +110,46 @@ export function TopicForm({ subjectId }: { subjectId: string }) {
       <input type="hidden" name="subjectId" value={subjectId} />
       <input name="name" aria-label="Novo assunto" placeholder="Novo assunto do edital" className="input flex-1 py-2 text-sm" />
       <Submit className="btn-outline btn-sm" pending="...">+ Assunto</Submit>
+    </StickyForm>
+  );
+}
+
+/** Lançar questões resolvidas. Lembra a última matéria e fonte usadas neste aparelho. */
+export function QuestionLogForm({ subjects, today }: { subjects: { id: string; name: string; topics: { id: string; name: string }[] }[]; today: string }) {
+  const [s, a, pending] = useStickyAction(addQuestionLog);
+  const [sub, setSub] = useState(""); const [src, setSrc] = useState("");
+  const [q, setQ] = useState(""); const [c, setC] = useState("");
+  useEffect(() => { try { setSub(localStorage.getItem("mq-sub") || ""); setSrc(localStorage.getItem("mq-src") || ""); } catch { /* sem storage */ } }, []);
+  useEffect(() => { if (s?.ok) { setQ(""); setC(""); try { localStorage.setItem("mq-sub", sub); localStorage.setItem("mq-src", src); } catch { /* sem storage */ } } }, [s]); // eslint-disable-line react-hooks/exhaustive-deps
+  const topics = subjects.find((x) => x.id === sub)?.topics ?? [];
+  const nq = Number(q), nc = Number(c);
+  const pct = nq > 0 && nc >= 0 && nc <= nq ? Math.round((nc / nq) * 100) : null;
+  return (
+    <StickyForm pending={pending} onSubmit={a} className="space-y-3" noValidate>
+      <FormMessage state={s} />
+      <Field label="Matéria" name="subjectId" state={s}>
+        <select id="subjectId" name="subjectId" className="input" value={sub} onChange={(e) => setSub(e.target.value)}><option value="" disabled>Escolha…</option>{subjects.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
+      </Field>
+      {topics.length > 0 && (
+        <Field label="Assunto (opcional)" name="topicId" state={s}>
+          <select id="topicId" name="topicId" className="input" defaultValue=""><option value="">Vários / não sei</option>{topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+        </Field>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        <Field label="Questões feitas" name="questions" state={s}><input id="questions" name="questions" inputMode="numeric" value={q} onChange={(e) => setQ(e.target.value)} className="input text-center text-lg font-bold" placeholder="20" /></Field>
+        <Field label="Acertos" name="correct" state={s}><input id="correct" name="correct" inputMode="numeric" value={c} onChange={(e) => setC(e.target.value)} className="input text-center text-lg font-bold" placeholder="15" /></Field>
+      </div>
+      {pct != null && <p className={`rounded-xl px-3 py-2 text-center text-sm font-bold ${pct >= 70 ? "bg-green-50 text-green-800" : pct >= 50 ? "bg-light text-navy" : "bg-red-50 text-red-800"}`}>{pct}% de acerto {pct >= 70 ? "· mandou bem!" : pct >= 50 ? "· na média da prova" : pct >= 40 ? "· no limite (40% por matéria)" : "· abaixo do mínimo, revise"}</p>}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="col-span-2"><label className="label" htmlFor="source">Fonte</label><input id="source" name="source" list="fontes" value={src} onChange={(e) => setSrc(e.target.value)} className="input" placeholder="QConcursos, TEC…" />
+          <datalist id="fontes">{["QConcursos", "TEC Concursos", "Gran Questões", "Estratégia", "PDF / apostila", "Prova anterior IBFC"].map((f) => <option key={f} value={f} />)}</datalist></div>
+        <div><label className="label" htmlFor="minutes">Tempo (min)</label><input id="minutes" name="minutes" inputMode="numeric" className="input text-center" placeholder="40" /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div><label className="label" htmlFor="qdate">Data</label><input id="qdate" name="date" type="date" defaultValue={today} className="input" /></div>
+        <div><label className="label" htmlFor="note">Obs. (opcional)</label><input id="note" name="note" className="input" placeholder="errei crase" /></div>
+      </div>
+      <Submit className="btn-primary w-full">Lançar questões</Submit>
     </StickyForm>
   );
 }

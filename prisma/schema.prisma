@@ -105,6 +105,7 @@ model User {
   studyPlan      StudyPlan?
   studySubjects  StudySubject[]
   studyTasks     StudyTask[]
+  questionLogs   StudyQuestionLog[]
   quoteCounter  Int                  @default(0)
 }
 
@@ -574,6 +575,7 @@ model StudySubject {
   sortOrder Int          @default(0)
   topics    StudyTopic[]
   tasks     StudyTask[]
+  questionLogs StudyQuestionLog[]
 
   @@index([userId])
 }
@@ -586,6 +588,7 @@ model StudyTopic {
   sortOrder Int          @default(0)
   studiedAt DateTime?
   tasks     StudyTask[]
+  questionLogs StudyQuestionLog[]
 
   @@index([subjectId])
 }
@@ -609,6 +612,26 @@ model StudyTask {
   originalDate     DateTime?
   rescheduledCount Int           @default(0)
   createdAt        DateTime      @default(now())
+
+  @@index([userId, date])
+}
+
+// Questões resolvidas (lançamento manual): alimenta acertos, metas e desempenho por matéria
+model StudyQuestionLog {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime      // dia (12:00 UTC)
+  subjectId String?
+  subject   StudySubject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  topicId   String?
+  topic     StudyTopic?   @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  questions Int
+  correct   Int
+  minutes   Int?
+  source    String?       // QConcursos, TEC, PDF, banca…
+  note      String?
+  createdAt DateTime      @default(now())
 
   @@index([userId, date])
 }

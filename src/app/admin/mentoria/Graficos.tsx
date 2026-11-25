@@ -62,3 +62,34 @@ export function SimuladosChart({ points }: { points: { label: string; pct: numbe
     </div>
   );
 }
+
+/** Questões por dia (14 dias): colunas empilhadas acertos × erros, com espaço de 2px entre os blocos. */
+export function QuestionsChart({ days }: { days: { label: string; correct: number; wrong: number; today: boolean }[] }) {
+  const H = 210, L = 34, B = 24, T = 14, R = 4, plotW = W - L - R, plotH = H - T - B;
+  const max = Math.max(10, ...days.map((d) => d.correct + d.wrong));
+  const step = [5, 10, 20, 25, 50, 100, 200].find((s) => max / s <= 4) ?? 500, top = Math.ceil(max / step) * step;
+  const y = (v: number) => T + plotH - (v / top) * plotH;
+  const gw = plotW / days.length, bw = Math.min(18, gw - 5);
+  if (days.every((d) => !d.correct && !d.wrong)) return <p className="text-sm text-muted">Lance as questões que você resolver para ver o gráfico.</p>;
+  return (
+    <div className="viz">
+      <div className="mb-2 flex flex-wrap gap-4 text-sm"><span className="flex items-center gap-1.5 text-ink"><span className="h-3 w-3 rounded-sm" style={{ background: "var(--s3)" }} />Acertos</span><span className="flex items-center gap-1.5 text-ink"><span className="h-3 w-3 rounded-sm" style={{ background: "var(--s2)" }} />Erros</span></div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[640px]" role="img" aria-label="Questões resolvidas por dia, acertos e erros">
+        {Array.from({ length: top / step + 1 }, (_, i) => i * step).map((t) => <g key={t}><line x1={L} x2={W - R} y1={y(t)} y2={y(t)} stroke="var(--grid)" /><text x={L - 6} y={y(t) + 4} textAnchor="end" fontSize={12} fill="var(--axis)">{t}</text></g>)}
+        {days.map((d, i) => {
+          const x = L + i * gw + (gw - bw) / 2, hc = plotH - (y(d.correct) - T), hw = plotH - (y(d.wrong) - T);
+          const gap = d.correct > 0 && d.wrong > 0 ? 2 : 0;
+          return (
+            <g key={i} className="viz-group">
+              <rect x={L + i * gw} y={T} width={gw} height={plotH} fill="transparent"><title>{`${d.today ? "Hoje" : d.label}: ${d.correct + d.wrong} questões · ${d.correct} acertos · ${d.wrong} erros${d.correct + d.wrong ? ` (${Math.round((d.correct / (d.correct + d.wrong)) * 100)}%)` : ""}`}</title></rect>
+              {hc > 0 && <rect pointerEvents="none" className="viz-mark" x={x} y={T + plotH - hc} width={bw} height={hc} fill="var(--s3)" />}
+              {hw > 0 && <rect pointerEvents="none" className="viz-mark" x={x} y={T + plotH - hc - gap - hw} width={bw} height={hw} rx={3} fill="var(--s2)" />}
+              <text x={x + bw / 2} y={H - 8} textAnchor="middle" fontSize={12} fill="var(--axis)" fontWeight={d.today ? 700 : 400}>{d.today ? "hoje" : d.label}</text>
+            </g>
+          );
+        })}
+        <line x1={L} x2={W - R} y1={T + plotH} y2={T + plotH} stroke="var(--axis)" />
+      </svg>
+    </div>
+  );
+}

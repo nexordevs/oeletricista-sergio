@@ -236,8 +236,9 @@ async function makeQuote(p, client, beforeClick) {
   ok(Number(sql(`select count(*) from "StudyTask" where "userId"='${admId}' and kind='TEORIA'`)) === gerou, 'gerar de novo não duplica os dias que já têm tarefas');
   const hoje = adm.locator('section:has(p:has-text("O que estudar hoje")) li:has(button:has-text("Estudei"))');
   if (await hoje.count()) {
-    const tId = sql(`select id from "StudyTask" where "userId"='${admId}' and kind='TEORIA' and date::date=(now() - interval '3 hours')::date order by "createdAt" limit 1`);
-    const row = hoje.first(); await row.locator('button:has-text("+ questões")').click(); await row.locator('input[name=questions]').fill('10'); await row.locator('input[name=correct]').fill('7');
+    const row = hoje.first();
+    const tTitle = (await row.locator('p.font-bold').first().innerText()).replace(/'/g, "''");
+    const tId = sql(`select id from "StudyTask" where "userId"='${admId}' and title='${tTitle}' and status='PENDENTE' limit 1`); await row.locator('button:has-text("+ questões")').click(); await row.locator('input[name=questions]').fill('10'); await row.locator('input[name=correct]').fill('7');
     await row.locator('button:has-text("Estudei")').click(); await adm.waitForTimeout(2500);
     ok(sql(`select status||':'||questions||':'||correct from "StudyTask" where id='${tId}'`) === 'FEITO:10:7', 'marcar como estudado salva questões e acertos');
     ok(sql(`select count(*) from "StudyTask" where "userId"='${admId}' and kind='REVISAO'`) === '3', 'estudar um assunto agenda as revisões (1, 7 e 15 dias)');
@@ -247,8 +248,21 @@ async function makeQuote(p, client, beforeClick) {
   await adm.reload(); ok(await adm.isVisible('text=tarefa atrasada') || await adm.isVisible('text=tarefas atrasadas'), 'tarefa não feita aparece como atrasada');
   await adm.click('button:has-text("Reprogramar (2 por dia)")'); await adm.waitForTimeout(2500);
   ok(sql(`select (date::date > (now() - interval '3 hours')::date)::text||':'||"rescheduledCount" from "StudyTask" where id='${nextId}'`) === 'true:1', 'reprogramar atrasadas joga para os próximos dias de estudo');
+  // Aba Questões: lançar, validar e refletir no desempenho e no painel
+  sql(`delete from "StudyQuestionLog" where "userId"='${admId}'`);
+  await adm.goto(B + '/admin/mentoria/questoes');
+  await adm.selectOption('#subjectId', { label: 'Direito Penal' }); await adm.fill('#questions', '10'); await adm.fill('#correct', '3'); await adm.fill('#source', 'QConcursos');
+  ok(await adm.isVisible('text=30% de acerto'), 'mostra a % de acerto antes de lançar');
+  await adm.click('button:has-text("Lançar questões")'); await adm.waitForTimeout(2500);
+  ok(sql(`select questions||':'||correct||':'||source from "StudyQuestionLog" where "userId"='${admId}'`) === '10:3:QConcursos', 'lança questões feitas, acertos e fonte');
+  await adm.reload(); ok(await adm.isVisible('text=abaixo de 40%'), 'desempenho por matéria avisa quando fica abaixo de 40%');
+  await adm.selectOption('#subjectId', { label: 'Sociologia' }); await adm.fill('#questions', '5'); await adm.fill('#correct', '7'); await adm.click('button:has-text("Lançar questões")'); await adm.waitForTimeout(2000);
+  ok(sql(`select count(*) from "StudyQuestionLog" where "userId"='${admId}'`) === '1' && await adm.isVisible('text=Acertos não podem passar'), 'não aceita mais acertos do que questões');
+  await adm.goto(B + '/admin/mentoria'); ok(await adm.isVisible('text=Questões na semana') && !(await adm.locator('div.card:has(p:text-is("Questões na semana")) p.text-xl').innerText()).startsWith('0 '), 'questões lançadas entram nas metas da semana do painel');
+  await adm.goto(B + '/admin/mentoria/semana'); ok(await adm.isVisible('text=Esta semana') && await adm.isVisible('text=questões lançadas'), 'visão da semana em colunas mostra tarefas e questões do dia');
   const pA = await (await b.newContext()).newPage(); await pA.goto(B + '/entrar'); await pA.fill('#email', `a${t}@teste.local`); await pA.fill('#password', 'Senha12345'); await pA.click('button[type=submit]'); await pA.waitForURL(/painel/);
   await pA.goto(B + '/admin/mentoria'); ok(!pA.url().includes('/admin/mentoria'), 'eletricista comum não acessa a mentoria (vai para o início)');
+  await pA.goto(B + '/admin/mentoria/questoes'); ok(!pA.url().includes('/admin/mentoria'), 'eletricista comum não acessa a aba de questões');
 
   await adm.goto(B + '/admin/solicitacoes'); ok(await adm.isVisible('text=Maria Teste'), 'solicitação do site aparece no admin');
   const lead = adm.locator('div.card', { hasText: 'Maria Teste' }).first();

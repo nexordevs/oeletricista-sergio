@@ -7,6 +7,7 @@ import { todayBR, addDays, dayKey, parseList, streak, KIND_LABEL } from "@/lib/m
 import { generateSchedule, undoTask, deleteTask, rescheduleLate, toggleTopic, deleteTopic, deleteSubject } from "./actions";
 import { PlanForm, DoneForm, RescheduleForm, AddTaskForm, SubjectForm, TopicForm } from "./forms";
 import { HoursChart, SimuladosChart } from "./Graficos";
+import { MentoriaTabs } from "./Tabs";
 
 export const metadata = { title: "Mentoria de estudos" };
 const hm = (m: number) => `${Math.floor(m / 60)}h${String(Math.round(m % 60)).padStart(2, "0")}`;
@@ -25,18 +26,25 @@ export default async function Mentoria() {
     prisma.studySubject.findMany({ where: { userId: u.id }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], include: { topics: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }] } } }),
     prisma.studyTask.findMany({ where: { userId: u.id, kind: "SIMULADO", status: "FEITO", questions: { gt: 0 } }, orderBy: { date: "asc" }, take: 20 }),
   ]);
+  const studyDays = parseList(plan.studyDays);
+  // questões lançadas na aba Questões contam nas metas, acertos, horas e sequência
+  const qlogs = await prisma.studyQuestionLog.findMany({ where: { userId: u.id, date: { gte: addDays(today, -120) } }, select: { date: true, minutes: true, questions: true, correct: true, subjectId: true } });
+  const activity = [...doneAll.map((t) => ({ day: t.doneAt ? dayKey(todayBR(t.doneAt)) : "", minutes: t.minutes, questions: t.questions ?? 0, correct: t.correct ?? 0, subjectId: t.subjectId })),
+    ...qlogs.map((l) => ({ day: dayKey(l.date), minutes: l.minutes ?? 0, questions: l.questions, correct: l.correct, subjectId: l.subjectId }))];
 
   // indicadores
-  const doneDay = (d: Date | null) => (d ? dayKey(todayBR(d)) : "");
-  const minutesOn = (k: string) => doneAll.filter((t) => doneDay(t.doneAt) === k).reduce((a, t) => a + t.minutes, 0);
-  const weekDone = doneAll.filter((t) => t.doneAt && todayBR(t.doneAt) >= weekStart);
+  const minutesOn = (k: string) => activity.filter((t) => t.day === k).reduce((a, t) => a + t.minutes, 0);
+  const weekDone = activity.filter((t) => t.day && t.day >= dayKey(weekStart));
   const weekMin = weekDone.reduce((a, t) => a + t.minutes, 0);
-  const studyDays = parseList(plan.studyDays);
   const weekGoalMin = plan.dailyMinutes * studyDays.length;
   const weekQ = weekDone.reduce((a, t) => a + (t.questions ?? 0), 0);
-  const allQ = doneAll.reduce((a, t) => a + (t.questions ?? 0), 0), allC = doneAll.reduce((a, t) => a + (t.correct ?? 0), 0);
+  const allQ = activity.reduce((a, t) => a + t.questions, 0), allC = activity.reduce((a, t) => a + t.correct, 0);
   const acc = allQ > 0 ? Math.round((allC / allQ) * 100) : null;
-  const seq = streak(new Set(doneAll.map((t) => doneDay(t.doneAt))), today);
+  const activeDays = new Set(activity.filter((t) => t.day).map((t) => t.day));
+  const seq = streak(activeDays, today);
+  const sunday = addDays(today, -today.getUTCDay());
+  const weekDots = Array.from({ length: 7 }, (_, i) => { const d = addDays(sunday, i), k = dayKey(d);
+    return { l: "DSTQQSS"[i], state: activeDays.has(k) ? "ok" : k === dayKey(today) ? "hoje" : d > today ? "futuro" : studyDays.includes(i) ? "faltou" : "descanso" }; });
   const todayTasks = tasks.filter((t) => dayKey(t.date) === tk);
   const todayDone = todayTasks.filter((t) => t.status === "FEITO").length;
   const todayMin = minutesOn(tk);
@@ -45,7 +53,7 @@ export default async function Mentoria() {
   const upcoming = [1, 2, 3, 4, 5, 6, 7].map((i) => { const d = addDays(today, i); return { d, items: tasks.filter((t) => dayKey(t.date) === dayKey(d)) }; });
   const hours = Array.from({ length: 14 }, (_, i) => { const d = addDays(today, i - 13); return { label: i === 13 ? "hoje" : `${WEEK[d.getUTCDay()]}`, minutes: minutesOn(dayKey(d)), today: i === 13 }; });
   const simPts = simulados.map((s) => ({ label: fmtDate(s.date).slice(0, 5), pct: Math.round(((s.correct ?? 0) / (s.questions || 1)) * 100), detail: `${s.correct ?? 0} de ${s.questions} questões` }));
-  const accBy = (id: string) => { const ts = doneAll.filter((t) => t.subjectId === id && (t.questions ?? 0) > 0); const q = ts.reduce((a, t) => a + (t.questions ?? 0), 0); return q ? Math.round((ts.reduce((a, t) => a + (t.correct ?? 0), 0) / q) * 100) : null; };
+  const accBy = (id: string) => { const ts = activity.filter((t) => t.subjectId === id && t.questions > 0); const q = ts.reduce((a, t) => a + t.questions, 0); return q ? Math.round((ts.reduce((a, t) => a + t.correct, 0) / q) * 100) : null; };
   const subjOpts = subjects.map((s) => ({ id: s.id, name: s.name }));
 
   const Meter = ({ label, value, goal, fmt }: { label: string; value: number; goal: number; fmt: (n: number) => string }) => {
@@ -83,6 +91,7 @@ export default async function Mentoria() {
 
   return (
     <div className="space-y-5">
+      <MentoriaTabs active="/admin/mentoria" />
       {/* TOPO */}
       <section className="rounded-2xl bg-navy p-5 text-white sm:p-6">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand">Mentoria · só você vê</p>
@@ -92,6 +101,14 @@ export default async function Mentoria() {
           <div className="rounded-xl bg-white/10 p-3"><p className="text-2xl font-bold text-brand sm:text-3xl">🔥 {seq}</p><p className="text-xs text-navy-soft">{seq === 1 ? "dia seguido" : "dias seguidos"}</p></div>
           <div className="rounded-xl bg-white/10 p-3"><p className="text-2xl font-bold text-brand sm:text-3xl">{totalTopics ? Math.round((seenTopics / totalTopics) * 100) : 0}%</p><p className="text-xs text-navy-soft">do edital estudado</p></div>
         </div>
+        <div className="mt-4 flex items-center justify-center gap-2 sm:gap-3" aria-label="Sequência da semana">
+          {weekDots.map((d, i) => (
+            <div key={i} className="text-center">
+              <span className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-bold sm:h-10 sm:w-10 ${d.state === "ok" ? "border-brand bg-brand text-navy" : d.state === "hoje" ? "border-brand text-brand" : d.state === "faltou" ? "border-white/40 text-white/60" : "border-white/20 text-white/30"}`} title={{ ok: "estudou", hoje: "hoje", faltou: "não estudou", futuro: "", descanso: "descanso" }[d.state]}>{d.state === "ok" ? "✓" : d.state === "faltou" ? "✗" : d.state === "descanso" ? "–" : ""}</span>
+              <span className="mt-1 block text-xs text-navy-soft">{d.l}</span>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* METAS */}
@@ -99,7 +116,7 @@ export default async function Mentoria() {
         <Meter label="Hoje" value={todayMin} goal={plan.dailyMinutes} fmt={hm} />
         <Meter label="Horas na semana" value={weekMin} goal={weekGoalMin} fmt={hm} />
         <Meter label="Questões na semana" value={weekQ} goal={plan.weeklyQuestions} fmt={(n) => String(n)} />
-        <div className="card"><p className="text-xs font-bold uppercase text-muted">Acerto geral</p><p className="mt-1 text-xl font-bold text-navy">{acc != null ? `${acc}%` : "—"}</p><p className="mt-1 text-xs text-muted">{allQ ? `${allC} de ${allQ} questões (120 dias)` : "registre questões ao concluir"}</p>{acc != null && acc < 50 && <p className="mt-1 text-xs font-bold text-red-700">abaixo dos 50% da prova</p>}</div>
+        <div className="card"><p className="text-xs font-bold uppercase text-muted">Acerto geral</p><p className="mt-1 text-xl font-bold text-navy">{acc != null ? `${acc}%` : "—"}</p><p className="mt-1 text-xs text-muted">{allQ ? `${allC} de ${allQ} questões (120 dias)` : <>lance na aba <a href="/admin/mentoria/questoes" className="font-bold underline">Questões</a></>}</p>{acc != null && acc < 50 && <p className="mt-1 text-xs font-bold text-red-700">abaixo dos 50% da prova</p>}</div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">

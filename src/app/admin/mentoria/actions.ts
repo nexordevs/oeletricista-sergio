@@ -168,3 +168,35 @@ export async function deleteTopic(fd: FormData) {
   await prisma.studyTopic.deleteMany({ where: { id: String(fd.get("id")), subject: { userId: u.id } } });
   refresh();
 }
+
+// ── Questões resolvidas (lançamento) ─────────────────────────────────
+export async function addQuestionLog(_: ActionState, fd: FormData): Promise<ActionState> {
+  const u = await requireAdmin();
+  const p = parseForm(z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
+    subjectId: z.string().min(1, "Escolha a matéria"),
+    topicId: z.string().optional(),
+    questions: z.coerce.number().int().min(1, "Quantas questões?").max(1000, "Máximo 1000"),
+    correct: z.coerce.number().int().min(0, "Acertos").max(1000, "Máximo 1000"),
+    minutes: z.string().optional(),
+    source: z.string().max(60).optional(),
+    note: z.string().max(200).optional(),
+  }), fd);
+  if (!p.ok) return p.error;
+  const d = p.data;
+  if (d.correct > d.questions) return { error: "Confira os campos.", fields: { correct: "Acertos não podem passar das questões feitas" } };
+  const s = await prisma.studySubject.findFirst({ where: { id: d.subjectId, userId: u.id }, include: { topics: { select: { id: true } } } });
+  if (!s) return { error: "Confira os campos.", fields: { subjectId: "Matéria não encontrada" } };
+  const topicId = d.topicId && s.topics.some((t) => t.id === d.topicId) ? d.topicId : null;
+  const min = d.minutes && d.minutes.trim() ? Math.max(0, Math.min(600, Math.round(Number(d.minutes)))) : null;
+  await prisma.studyQuestionLog.create({ data: { userId: u.id, date: fromKey(d.date), subjectId: s.id, topicId, questions: d.questions, correct: d.correct, minutes: Number.isFinite(min) ? min : null, source: d.source?.trim() || null, note: d.note?.trim() || null } });
+  revalidatePath("/admin/mentoria"); revalidatePath("/admin/mentoria/questoes");
+  const pct = Math.round((d.correct / d.questions) * 100);
+  return { ok: true, message: `${d.questions} questões de ${s.name} lançadas · ${pct}% de acerto${pct >= 70 ? " 🔥" : pct < 40 ? " — revise esse conteúdo" : ""}` };
+}
+
+export async function deleteQuestionLog(fd: FormData) {
+  const u = await requireAdmin();
+  await prisma.studyQuestionLog.deleteMany({ where: { id: String(fd.get("id")), userId: u.id } });
+  revalidatePath("/admin/mentoria"); revalidatePath("/admin/mentoria/questoes");
+}
