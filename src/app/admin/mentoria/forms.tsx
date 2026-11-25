@@ -6,27 +6,46 @@ import { savePlan, completeTask, addTask, saveSubject, addTopic, rescheduleTask,
 
 const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-export function PlanForm({ p }: { p: { title: string; examDate: string; dailyMinutes: number; blockMinutes: number; weeklyQuestions: number; studyDays: number[]; reviewDays: string; simuladoEvery: number } }) {
+const fmtH = (m: number) => (m <= 0 ? "" : `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, "0") : ""}`);
+const toMin = (v: string) => {
+  const t = (v || "").trim().toLowerCase().replace(/\s/g, ""); if (!t) return 0;
+  let m = t.match(/^(\d{1,2})(?:h|:)(\d{1,2})?$/); if (m) return Number(m[1]) * 60 + Number(m[2] || 0);
+  m = t.match(/^(\d{1,3})m(?:in)?$/); if (m) return Number(m[1]);
+  const n = Number(t.replace(",", ".")); return Number.isFinite(n) && n >= 0 ? Math.round(n * 60) : 0;
+};
+
+/** Horas de estudo por dia da semana + demais metas do plano. */
+export function PlanForm({ p }: { p: { title: string; examDate: string; dayMinutes: number[]; blockMinutes: number; weeklyQuestions: number; reviewDays: string; simuladoEvery: number } }) {
   const [s, a, pending] = useStickyAction(savePlan);
+  const [h, setH] = useState(p.dayMinutes.map(fmtH));
+  const total = h.reduce((x, v) => x + toMin(v), 0);
   return (
-    <StickyForm pending={pending} onSubmit={a} className="space-y-3" noValidate>
+    <StickyForm pending={pending} onSubmit={a} className="space-y-4" noValidate>
       <FormMessage state={s} />
+      <div>
+        <p className="label">Minhas horas de estudo</p>
+        <p className="mb-2 text-xs text-muted">Quanto tempo você tem em cada dia. Ex.: 2, 1h30, 1:30 ou 45min. Deixe vazio no dia de descanso.</p>
+        <div className="grid grid-cols-7 gap-1.5">
+          {DAYS.map((d, i) => (
+            <label key={d} className="text-center">
+              <span className={`block text-xs font-bold ${toMin(h[i]) > 0 ? "text-navy" : "text-muted"}`}>{d}</span>
+              <input name={`day${i}`} value={h[i]} onChange={(e) => setH((x) => x.map((v, j) => (j === i ? e.target.value : v)))} inputMode="text" aria-label={`Horas de estudo ${d}`}
+                className={`input mt-1 px-1 py-2 text-center text-sm font-bold ${toMin(h[i]) > 0 ? "border-navy/40" : ""}`} placeholder="—" />
+            </label>
+          ))}
+        </div>
+        <p className="mt-2 rounded-xl bg-light px-3 py-2 text-sm text-navy">Total: <b>{fmtH(total) || "0h"} por semana</b>{total > 0 && <> · média de <b>{fmtH(Math.round(total / Math.max(1, h.filter((v) => toMin(v) > 0).length)))}</b> nos dias de estudo</>}</p>
+        {s?.fields?.horas && <p className="mt-1 text-sm font-bold text-red-700">{s.fields.horas}</p>}
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Concurso" name="title" state={s}><input id="title" name="title" defaultValue={p.title} className="input" /></Field>
         <Field label="Data da prova" name="examDate" state={s} hint="Deixe vazio se ainda não saiu o edital."><input id="examDate" name="examDate" type="date" defaultValue={p.examDate} className="input" /></Field>
-        <Field label="Meta de estudo por dia (min)" name="dailyMinutes" state={s}><input id="dailyMinutes" name="dailyMinutes" inputMode="numeric" defaultValue={p.dailyMinutes} className="input" /></Field>
-        <Field label="Duração de cada bloco (min)" name="blockMinutes" state={s}><input id="blockMinutes" name="blockMinutes" inputMode="numeric" defaultValue={p.blockMinutes} className="input" /></Field>
+        <Field label="Duração de cada bloco (min)" name="blockMinutes" state={s} hint="Ex.: 60 → um dia de 2h30 vira 60 + 60 + 30 min."><input id="blockMinutes" name="blockMinutes" inputMode="numeric" defaultValue={p.blockMinutes} className="input" /></Field>
         <Field label="Meta de questões por semana" name="weeklyQuestions" state={s}><input id="weeklyQuestions" name="weeklyQuestions" inputMode="numeric" defaultValue={p.weeklyQuestions} className="input" /></Field>
         <Field label="Simulado a cada (dias)" name="simuladoEvery" state={s} hint="0 = sem simulados automáticos"><input id="simuladoEvery" name="simuladoEvery" inputMode="numeric" defaultValue={p.simuladoEvery} className="input" /></Field>
-        <Field label="Revisões depois de estudar (dias)" name="reviewDays" state={s} hint="Ex.: 1, 7, 15 → revisa 1 dia, 7 dias e 15 dias depois"><input id="reviewDays" name="reviewDays" defaultValue={p.reviewDays} className="input" /></Field>
-        <div><span className="label">Dias de estudo</span>
-          <div className="flex flex-wrap gap-1.5">{DAYS.map((d, i) => (
-            <label key={d} className="cursor-pointer rounded-lg border-2 border-line px-2.5 py-1.5 text-sm font-bold has-[:checked]:border-navy has-[:checked]:bg-navy has-[:checked]:text-white">
-              <input type="checkbox" name="studyDays" value={i} defaultChecked={p.studyDays.includes(i)} className="sr-only" />{d}</label>))}</div>
-          {s?.fields?.studyDays && <p className="mt-1 text-sm font-bold text-red-700">{s.fields.studyDays}</p>}
-        </div>
+        <Field label="Revisões depois de estudar (dias)" name="reviewDays" state={s} hint="Ex.: 1, 7, 15"><input id="reviewDays" name="reviewDays" defaultValue={p.reviewDays} className="input" /></Field>
       </div>
-      <Submit className="btn-navy">Salvar plano</Submit>
+      <Submit className="btn-navy w-full">Salvar plano</Submit>
     </StickyForm>
   );
 }
@@ -106,10 +125,12 @@ export function TopicForm({ subjectId }: { subjectId: string }) {
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => { if (s?.ok) ref.current?.reset(); }, [s]);
   return (
-    <StickyForm ref={ref} pending={pending} onSubmit={a} className="flex gap-2" noValidate>
+    <StickyForm ref={ref} pending={pending} onSubmit={a} className="space-y-1.5" noValidate>
       <input type="hidden" name="subjectId" value={subjectId} />
-      <input name="name" aria-label="Novo assunto" placeholder="Novo assunto do edital" className="input flex-1 py-2 text-sm" />
-      <Submit className="btn-outline btn-sm" pending="...">+ Assunto</Submit>
+      <textarea name="name" rows={3} aria-label="Novos temas" placeholder={"Novos temas (um por linha). Ex.:\nNacionalidade – Art. 12 e 13\nDireitos Políticos – Art. 14 ao 16"} className="input py-2 text-sm" />
+      <div className="flex items-center justify-between gap-2"><span className="text-xs text-muted">Pode colar a lista do edital.</span><Submit className="btn-outline btn-sm" pending="...">+ Adicionar temas</Submit></div>
+      {s?.ok && <p className="text-xs font-bold text-green-700">✓ {s.message}</p>}
+      {s?.error && <p className="text-xs font-bold text-red-700">{Object.values(s.fields || {})[0] || s.error}</p>}
     </StickyForm>
   );
 }

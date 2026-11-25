@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { parseForm, zText, type ActionState } from "@/lib/form";
 import { ensureSetup } from "@/lib/mentoria-server";
-import { planDays, reviewTasks, todayBR, addDays, dayKey, fromKey, parseList, type SubjectState } from "@/lib/mentoria";
+import { planDays, reviewTasks, todayBR, addDays, dayKey, fromKey, parseList, minutesByDay, parseHours, type SubjectState } from "@/lib/mentoria";
 
 const refresh = () => revalidatePath("/admin/mentoria");
 
@@ -15,27 +15,43 @@ export async function savePlan(_: ActionState, fd: FormData): Promise<ActionStat
   const p = parseForm(z.object({
     title: zText(2, 60, "Dê um nome ao plano"),
     examDate: z.string().optional(),
-    dailyMinutes: z.coerce.number().int().min(30, "Mínimo 30 min").max(960, "Máximo 16 h"),
     blockMinutes: z.coerce.number().int().min(15, "Mínimo 15 min").max(240, "Máximo 4 h"),
     weeklyQuestions: z.coerce.number().int().min(0).max(5000),
     reviewDays: z.string().regex(/^\s*\d+(\s*,\s*\d+)*\s*$/, "Ex.: 1, 7, 15"),
     simuladoEvery: z.coerce.number().int().min(0).max(90),
   }), fd);
   if (!p.ok) return p.error;
-  const studyDays = fd.getAll("studyDays").map(Number).filter((n) => n >= 0 && n <= 6);
-  if (!studyDays.length) return { error: "Escolha pelo menos um dia de estudo.", fields: { studyDays: "Escolha os dias" } };
+  // horas de estudo de cada dia da semana (0 / vazio = descanso)
+  const mins = Array.from({ length: 7 }, (_, i) => parseHours(String(fd.get(`day${i}`) ?? "")));
+  if (mins.some((m) => m > 16 * 60)) return { error: "Confira as horas.", fields: { horas: "Máximo de 16 h por dia" } };
+  if (!mins.some((m) => m > 0)) return { error: "Confira as horas.", fields: { horas: "Coloque as horas de pelo menos um dia" } };
+  const studyDays = mins.map((m, i) => (m > 0 ? i : -1)).filter((i) => i >= 0);
+  const dailyMinutes = Math.round(mins.filter((m) => m > 0).reduce((a, m) => a + m, 0) / studyDays.length);
   const { examDate, reviewDays, ...d } = p.data;
   await ensureSetup(u.id);
-  await prisma.studyPlan.update({ where: { userId: u.id }, data: { ...d, studyDays: studyDays.join(","), reviewDays: parseList(reviewDays).join(","), examDate: examDate && /^\d{4}-\d{2}-\d{2}$/.test(examDate) ? fromKey(examDate) : null } });
+  await prisma.studyPlan.update({ where: { userId: u.id }, data: { ...d, dailyMinutes, dayMinutes: mins.join(","), studyDays: studyDays.join(","), reviewDays: parseList(reviewDays).join(","), examDate: examDate && /^\d{4}-\d{2}-\d{2}$/.test(examDate) ? fromKey(examDate) : null } });
   refresh();
-  return { ok: true, message: "Plano salvo!" };
+  return { ok: true, message: `Plano salvo! ${Math.floor(mins.reduce((a, m) => a + m, 0) / 60)}h por semana. Toque em “Refazer cronograma” para aplicar as novas horas.` };
 }
 
 /** Monta o cronograma dos próximos dias (ciclo por peso + simulados), sem mexer nos dias que já têm tarefas. */
 export async function generateSchedule(fd: FormData) {
   const u = await requireAdmin();
+  await buildSchedule(u.id, Math.min(30, Math.max(1, Number(fd.get("days")) || 7)));
+  refresh();
+}
+
+/** Refaz o cronograma: apaga só as tarefas automáticas pendentes a partir de amanhã e monta de novo (14 dias). */
+export async function rebuildSchedule() {
+  const u = await requireAdmin();
+  await prisma.studyTask.deleteMany({ where: { userId: u.id, auto: true, status: "PENDENTE", kind: { in: ["TEORIA", "QUESTOES"] }, date: { gte: addDays(todayBR(), 1) } } });
+  await buildSchedule(u.id, 14);
+  refresh();
+}
+
+async function buildSchedule(userId: string, days: number) {
+  const u = { id: userId };
   const plan = await ensureSetup(u.id);
-  const days = Math.min(30, Math.max(1, Number(fd.get("days")) || 7));
   const from = todayBR();
   const [subjects, counts, existing] = await Promise.all([
     prisma.studySubject.findMany({ where: { userId: u.id }, orderBy: { sortOrder: "asc" }, include: { topics: { orderBy: { sortOrder: "asc" } } } }),
@@ -47,9 +63,8 @@ export async function generateSchedule(fd: FormData) {
     topics: s.topics.map((t) => ({ id: t.id, name: t.name, studied: Boolean(t.studiedAt), pending: pendingTopics.has(t.id) })) }));
   const busy = new Set(existing.filter((e) => e.kind === "TEORIA" || e.kind === "QUESTOES").map((e) => dayKey(e.date)));
   const sims = new Set(existing.filter((e) => e.kind === "SIMULADO").map((e) => dayKey(e.date)));
-  const tasks = planDays({ dailyMinutes: plan.dailyMinutes, blockMinutes: plan.blockMinutes, studyDays: parseList(plan.studyDays), reviewDays: parseList(plan.reviewDays), simuladoEvery: plan.simuladoEvery, startDate: plan.startDate, examDate: plan.examDate }, state, from, days, busy, sims);
-  if (tasks.length) await prisma.studyTask.createMany({ data: tasks.map((t) => ({ ...t, userId: u.id })) });
-  refresh();
+  const tasks = planDays({ dayMinutes: minutesByDay(plan), blockMinutes: plan.blockMinutes, reviewDays: parseList(plan.reviewDays), simuladoEvery: plan.simuladoEvery, startDate: plan.startDate, examDate: plan.examDate }, state, from, days, busy, sims);
+  if (tasks.length) await prisma.studyTask.createMany({ data: tasks.map((t) => ({ ...t, userId: u.id, auto: true })) });
 }
 
 /** Marca como feito (com questões/acertos opcionais). Teoria concluída agenda as revisões. */
@@ -147,13 +162,16 @@ export async function deleteSubject(fd: FormData) {
 
 export async function addTopic(_: ActionState, fd: FormData): Promise<ActionState> {
   const u = await requireAdmin();
-  const p = parseForm(z.object({ subjectId: z.string().min(1), name: zText(2, 120, "Nome do assunto") }), fd);
+  const p = parseForm(z.object({ subjectId: z.string().min(1), name: zText(2, 6000, "Escreva o tema (um por linha)") }), fd);
   if (!p.ok) return p.error;
-  const s = await prisma.studySubject.findFirst({ where: { id: p.data.subjectId, userId: u.id }, select: { id: true } });
+  const s = await prisma.studySubject.findFirst({ where: { id: p.data.subjectId, userId: u.id }, select: { id: true, _count: { select: { topics: true } } } });
   if (!s) return { error: "Matéria não encontrada." };
-  await prisma.studyTopic.create({ data: { subjectId: s.id, name: p.data.name, sortOrder: 99 } });
+  // um tema por linha (aceita colar a lista do edital; ignora marcadores como "1.", "-", "•")
+  const names = [...new Set(p.data.name.split("\n").map((x) => x.replace(/^\s*(?:[-•*]|\d+[.)-])\s*/, "").trim()).filter((x) => x.length >= 2).map((x) => x.slice(0, 120)))].slice(0, 100);
+  if (!names.length) return { error: "Escreva pelo menos um tema." };
+  await prisma.studyTopic.createMany({ data: names.map((name, i) => ({ subjectId: s.id, name, sortOrder: s._count.topics + i })) });
   refresh();
-  return { ok: true, message: "Assunto adicionado" };
+  return { ok: true, message: names.length === 1 ? "Tema adicionado" : `${names.length} temas adicionados` };
 }
 
 export async function toggleTopic(fd: FormData) {

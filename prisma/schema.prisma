@@ -563,6 +563,7 @@ model StudyPlan {
   studyDays       String    @default("1,2,3,4,5,6") // 0 = domingo
   reviewDays      String    @default("1,7,15")      // revisões depois de estudar o assunto
   simuladoEvery   Int       @default(15)            // simulado a cada X dias
+  dayMinutes      String?                           // minutos de estudo por dia da semana "dom,seg,...,sáb" (0 = descanso)
   startDate       DateTime  @default(now())
 }
 
@@ -611,6 +612,7 @@ model StudyTask {
   correct          Int?
   originalDate     DateTime?
   rescheduledCount Int           @default(0)
+  auto             Boolean       @default(false) // criada pelo cronograma automático (pode ser refeita)
   createdAt        DateTime      @default(now())
 
   @@index([userId, date])

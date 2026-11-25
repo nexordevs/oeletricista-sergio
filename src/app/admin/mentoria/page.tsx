@@ -3,8 +3,8 @@ import { requireAdmin } from "@/lib/auth";
 import { fmtDate } from "@/lib/money";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { ensureSetup } from "@/lib/mentoria-server";
-import { todayBR, addDays, dayKey, parseList, streak, KIND_LABEL } from "@/lib/mentoria";
-import { generateSchedule, undoTask, deleteTask, rescheduleLate, toggleTopic, deleteTopic, deleteSubject } from "./actions";
+import { todayBR, addDays, dayKey, parseList, streak, minutesByDay, fmtHours, DIAS, KIND_LABEL } from "@/lib/mentoria";
+import { generateSchedule, rebuildSchedule, undoTask, deleteTask, rescheduleLate, toggleTopic, deleteTopic, deleteSubject } from "./actions";
 import { PlanForm, DoneForm, RescheduleForm, AddTaskForm, SubjectForm, TopicForm } from "./forms";
 import { HoursChart, SimuladosChart } from "./Graficos";
 import { MentoriaTabs } from "./Tabs";
@@ -36,7 +36,9 @@ export default async function Mentoria() {
   const minutesOn = (k: string) => activity.filter((t) => t.day === k).reduce((a, t) => a + t.minutes, 0);
   const weekDone = activity.filter((t) => t.day && t.day >= dayKey(weekStart));
   const weekMin = weekDone.reduce((a, t) => a + t.minutes, 0);
-  const weekGoalMin = plan.dailyMinutes * studyDays.length;
+  const dayMin = minutesByDay(plan);
+  const todayGoal = dayMin[today.getUTCDay()];
+  const weekGoalMin = dayMin.reduce((a, m) => a + m, 0);
   const weekQ = weekDone.reduce((a, t) => a + (t.questions ?? 0), 0);
   const allQ = activity.reduce((a, t) => a + t.questions, 0), allC = activity.reduce((a, t) => a + t.correct, 0);
   const acc = allQ > 0 ? Math.round((allC / allQ) * 100) : null;
@@ -73,7 +75,8 @@ export default async function Mentoria() {
         <div className="min-w-0">
           <span className={`badge ${KIND_STYLE[t.kind]}`}>{KIND_LABEL[t.kind]}</span>
           <span className="ml-2 text-xs text-muted">{t.minutes} min{showDate ? ` · ${fmtDate(t.date)}` : ""}{t.rescheduledCount > 0 ? ` · reprogramada ${t.rescheduledCount}x` : ""}</span>
-          <p className={`mt-1 font-bold text-navy ${t.status === "FEITO" ? "line-through" : ""}`}>{t.title}</p>
+          {t.subject && <p className="mt-1 text-xs font-bold uppercase tracking-wide text-muted">{t.subject.name}</p>}
+          <p className={`font-bold text-navy ${t.subject ? "" : "mt-1"} ${t.status === "FEITO" ? "line-through" : ""}`}>{t.subject ? t.title.replace(/^[^:]+: /, "") : t.title}</p>
           {t.status === "FEITO" && t.questions != null && <p className="text-xs text-muted">{t.correct ?? 0} de {t.questions} questões ({t.questions ? Math.round(((t.correct ?? 0) / t.questions) * 100) : 0}%)</p>}
         </div>
         {t.status === "FEITO"
@@ -113,7 +116,7 @@ export default async function Mentoria() {
 
       {/* METAS */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Meter label="Hoje" value={todayMin} goal={plan.dailyMinutes} fmt={hm} />
+        <Meter label={todayGoal > 0 ? "Hoje" : "Hoje (descanso)"} value={todayMin} goal={todayGoal} fmt={hm} />
         <Meter label="Horas na semana" value={weekMin} goal={weekGoalMin} fmt={hm} />
         <Meter label="Questões na semana" value={weekQ} goal={plan.weeklyQuestions} fmt={(n) => String(n)} />
         <div className="card"><p className="text-xs font-bold uppercase text-muted">Acerto geral</p><p className="mt-1 text-xl font-bold text-navy">{acc != null ? `${acc}%` : "—"}</p><p className="mt-1 text-xs text-muted">{allQ ? `${allC} de ${allQ} questões (120 dias)` : <>lance na aba <a href="/admin/mentoria/questoes" className="font-bold underline">Questões</a></>}</p>{acc != null && acc < 50 && <p className="mt-1 text-xs font-bold text-red-700">abaixo dos 50% da prova</p>}</div>
@@ -144,13 +147,26 @@ export default async function Mentoria() {
             {todayTasks.length > 0 && todayDone === todayTasks.length && <p className="border-t border-line px-5 py-3 text-sm font-bold text-green-700">🏆 Tudo feito hoje! Mandou bem, Sergio.</p>}
           </section>
 
+          {/* MINHAS HORAS */}
+          <section className="card">
+            <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-lg font-bold text-navy">Minhas horas de estudo</p><a href="#plano" className="text-sm font-bold text-navy underline">editar horas</a></div>
+            <div className="mt-3 grid grid-cols-7 gap-1.5 text-center">{DIAS.map((d, i) => (
+              <div key={d} className={`rounded-xl py-2 ${i === today.getUTCDay() ? "ring-2 ring-brand" : ""} ${dayMin[i] > 0 ? "bg-navy text-white" : "bg-light text-muted"}`}>
+                <p className="text-[11px] font-bold uppercase opacity-80">{d}</p><p className="text-sm font-bold">{dayMin[i] > 0 ? fmtHours(dayMin[i]) : "folga"}</p>
+              </div>))}</div>
+            <p className="mt-2 text-sm text-muted">Total: <b className="text-ink">{fmtHours(weekGoalMin)} por semana</b> · blocos de {plan.blockMinutes} min{!plan.dayMinutes && <b className="text-red-700"> · confira suas horas em “Plano e metas”</b>}</p>
+          </section>
+
           {/* CRONOGRAMA */}
           <section className="card p-0">
             <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4">
               <p className="text-lg font-bold text-navy">Próximos 7 dias</p>
-              <form action={generateSchedule} className="flex gap-2"><button name="days" value="7" className="btn-primary btn-sm">Gerar 7 dias</button><button name="days" value="30" className="btn-outline btn-sm">30 dias</button></form>
+              <div className="flex flex-wrap gap-2">
+                <form action={generateSchedule} className="flex gap-2"><button name="days" value="7" className="btn-primary btn-sm">Gerar 7 dias</button><button name="days" value="30" className="btn-outline btn-sm">30 dias</button></form>
+                <form action={rebuildSchedule}><ConfirmButton message="Refazer o cronograma a partir de amanhã com as suas horas atuais? Tarefas feitas, revisões, simulados e as que você criou à mão continuam." className="btn-outline btn-sm">↻ Refazer cronograma</ConfirmButton></form>
+              </div>
             </div>
-            <p className="px-5 pb-3 text-xs text-muted">O cronograma segue o ciclo de estudos pelo peso de cada matéria ({plan.dailyMinutes} min/dia em blocos de {plan.blockMinutes} min), não repete assunto e não mexe nos dias que já têm tarefas. Simulado a cada {plan.simuladoEvery || "—"} dias; revisões {plan.reviewDays.split(",").join(", ")} dias depois de estudar cada assunto.</p>
+            <p className="px-5 pb-3 text-xs text-muted">O cronograma usa <b>as suas horas de cada dia</b> (blocos de {plan.blockMinutes} min) e o ciclo de estudos pelo peso das matérias, com <b>o tema de cada assunto</b> em cada bloco. Não repete tema e não mexe nos dias que já têm tarefas. Mudou as horas? Use <b>Refazer cronograma</b>. Simulado a cada {plan.simuladoEvery || "—"} dias; revisões {plan.reviewDays.split(",").join(", ")} dias depois de estudar cada tema.</p>
             <ul className="divide-y divide-line">
               {upcoming.map(({ d, items }) => (
                 <li key={dayKey(d)}>
@@ -176,7 +192,7 @@ export default async function Mentoria() {
 
           {/* EDITAL */}
           <section className="card p-0">
-            <div className="px-5 py-4"><p className="text-lg font-bold text-navy">Progresso do edital</p><p className="text-sm text-muted">{seenTopics} de {totalTopics} assuntos estudados. Toque na matéria para marcar assuntos, mudar o peso ou incluir conteúdo. Confira sempre com o edital oficial.</p></div>
+            <div className="px-5 py-4"><p className="text-lg font-bold text-navy">Progresso do edital</p><p className="text-sm text-muted">{seenTopics} de {totalTopics} temas estudados. Toque na matéria para marcar temas, mudar o peso ou <b className="text-ink">colar os temas do seu edital</b> (um por linha): eles entram no cronograma automático na ordem da lista.</p></div>
             <ul className="divide-y divide-line">{subjects.map((s) => {
               const seen = s.topics.filter((t) => t.studiedAt).length, pct = s.topics.length ? Math.round((seen / s.topics.length) * 100) : 0, a = accBy(s.id);
               return (
@@ -205,14 +221,14 @@ export default async function Mentoria() {
 
         <aside className="space-y-5 lg:sticky lg:top-6 lg:h-fit">
           <section className="card"><p className="mb-3 text-lg font-bold text-navy">Adicionar tarefa</p><AddTaskForm subjects={subjOpts} today={tk} /></section>
-          <section className="card">
-            <details><summary className="cursor-pointer text-lg font-bold text-navy">⚙ Plano e metas</summary>
-              <div className="mt-3"><PlanForm p={{ title: plan.title, examDate: plan.examDate ? dayKey(plan.examDate) : "", dailyMinutes: plan.dailyMinutes, blockMinutes: plan.blockMinutes, weeklyQuestions: plan.weeklyQuestions, studyDays, reviewDays: plan.reviewDays.split(",").join(", "), simuladoEvery: plan.simuladoEvery }} /></div>
+          <section id="plano" className="card scroll-mt-20">
+            <details open={!plan.dayMinutes}><summary className="cursor-pointer text-lg font-bold text-navy">⚙ Plano, horas e metas</summary>
+              <div className="mt-3"><PlanForm p={{ title: plan.title, examDate: plan.examDate ? dayKey(plan.examDate) : "", dayMinutes: dayMin, blockMinutes: plan.blockMinutes, weeklyQuestions: plan.weeklyQuestions, reviewDays: plan.reviewDays.split(",").join(", "), simuladoEvery: plan.simuladoEvery }} /></div>
             </details>
           </section>
           <section className="card space-y-2 text-sm text-muted">
             <p className="font-bold text-navy">Como usar</p>
-            <p>1. Ajuste o <b className="text-ink">plano e metas</b> (data da prova, horas por dia, dias de estudo).</p>
+            <p>1. Em <b className="text-ink">Plano, horas e metas</b>, coloque quantas horas você tem em cada dia e a data da prova.</p>
             <p>2. Toque em <b className="text-ink">Gerar 7 dias</b>: o sistema monta o que estudar em cada dia.</p>
             <p>3. Estudou? <b className="text-ink">✓ Estudei</b> (com questões e acertos). As revisões entram sozinhas.</p>
             <p>4. Não deu? <b className="text-ink">↻ Amanhã</b> ou outra data. Atrasadas aparecem no topo.</p>

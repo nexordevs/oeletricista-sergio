@@ -237,8 +237,8 @@ async function makeQuote(p, client, beforeClick) {
   const hoje = adm.locator('section:has(p:has-text("O que estudar hoje")) li:has(button:has-text("Estudei"))');
   if (await hoje.count()) {
     const row = hoje.first();
-    const tTitle = (await row.locator('p.font-bold').first().innerText()).replace(/'/g, "''");
-    const tId = sql(`select id from "StudyTask" where "userId"='${admId}' and title='${tTitle}' and status='PENDENTE' limit 1`); await row.locator('button:has-text("+ questões")').click(); await row.locator('input[name=questions]').fill('10'); await row.locator('input[name=correct]').fill('7');
+    const tTitle = (await row.locator('p.font-bold.text-navy').first().innerText()).replace(/'/g, "''");
+    const tId = sql(`select id from "StudyTask" where "userId"='${admId}' and (title='${tTitle}' or title like '%: ${tTitle}') and status='PENDENTE' and date::date=(now() - interval '3 hours')::date limit 1`); await row.locator('button:has-text("+ questões")').click(); await row.locator('input[name=questions]').fill('10'); await row.locator('input[name=correct]').fill('7');
     await row.locator('button:has-text("Estudei")').click(); await adm.waitForTimeout(2500);
     ok(sql(`select status||':'||questions||':'||correct from "StudyTask" where id='${tId}'`) === 'FEITO:10:7', 'marcar como estudado salva questões e acertos');
     ok(sql(`select count(*) from "StudyTask" where "userId"='${admId}' and kind='REVISAO'`) === '3', 'estudar um assunto agenda as revisões (1, 7 e 15 dias)');
@@ -248,6 +248,21 @@ async function makeQuote(p, client, beforeClick) {
   await adm.reload(); ok(await adm.isVisible('text=tarefa atrasada') || await adm.isVisible('text=tarefas atrasadas'), 'tarefa não feita aparece como atrasada');
   await adm.click('button:has-text("Reprogramar (2 por dia)")'); await adm.waitForTimeout(2500);
   ok(sql(`select (date::date > (now() - interval '3 hours')::date)::text||':'||"rescheduledCount" from "StudyTask" where id='${nextId}'`) === 'true:1', 'reprogramar atrasadas joga para os próximos dias de estudo');
+  // Horas por dia da semana, temas colados e refazer cronograma
+  await adm.goto(B + '/admin/mentoria');
+  const det = adm.locator('#plano details'); if ((await det.getAttribute('open')) === null) await det.locator('summary').click();
+  for (const [i, v] of [['0', ''], ['1', '2'], ['2', '1:30'], ['3', '3'], ['4', '2'], ['5', '2'], ['6', '4h']]) await adm.fill(`input[name=day${i}]`, v);
+  ok(await adm.isVisible('text=14h30 por semana'), 'mostra o total de horas da semana enquanto digita');
+  await adm.click('button:has-text("Salvar plano")'); await adm.waitForTimeout(2500);
+  ok(sql(`select "dayMinutes" from "StudyPlan" where "userId"='${admId}'`) === '0,120,90,180,120,120,240', 'salva as horas de estudo de cada dia da semana');
+  const dcs = adm.locator('details:has(summary:has-text("Direito Constitucional"))').first(); await dcs.locator('summary').click();
+  await dcs.locator('textarea[name=name]').fill('1. Nacionalidade – Art. 12 e 13\n- Direitos Políticos – Art. 14 ao 16'); await dcs.locator('button:has-text("Adicionar temas")').click(); await adm.waitForTimeout(2000);
+  ok(sql(`select count(*) from "StudyTopic" t join "StudySubject" s on s.id=t."subjectId" where s."userId"='${admId}' and t.name in ('Nacionalidade – Art. 12 e 13','Direitos Políticos – Art. 14 ao 16')`) === '2', 'cola vários temas de uma vez (um por linha, sem os marcadores)');
+  adm.once('dialog', (d) => d.accept()); await adm.click('button:has-text("Refazer cronograma")'); await adm.waitForTimeout(3500);
+  const bad = sql(`select count(*) from (select date, sum(minutes) m from "StudyTask" where "userId"='${admId}' and auto and kind in ('TEORIA','QUESTOES') and date > now() group by date) x where m <> (array[0,120,90,180,120,120,240])[extract(dow from date)::int + 1]`);
+  ok(bad === '0', 'refazer cronograma distribui exatamente as horas de cada dia');
+  ok(Number(sql(`select count(*) from "StudyTask" where "userId"='${admId}' and status='FEITO'`)) >= 1, 'refazer cronograma não apaga o que já foi feito');
+
   // Aba Questões: lançar, validar e refletir no desempenho e no painel
   sql(`delete from "StudyQuestionLog" where "userId"='${admId}'`);
   await adm.goto(B + '/admin/mentoria/questoes');
