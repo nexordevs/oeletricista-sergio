@@ -33,3 +33,26 @@ export async function buildSchedule(userId: string, days: number) {
   const tasks = planDays({ dayMinutes: minutesByDay(plan), blockMinutes: plan.blockMinutes, reviewDays: parseList(plan.reviewDays), simuladoEvery: plan.simuladoEvery, startDate: plan.startDate, examDate: plan.examDate }, state, from, days, busy, sims);
   if (tasks.length) await prisma.studyTask.createMany({ data: tasks.map((t) => ({ ...t, userId: u.id, auto: true })) });
 }
+
+/** Horas da semana (seg → dom): meta de cada dia × quanto estudou (tarefas feitas + questões lançadas). Null se ainda não tem plano. */
+export async function studyHours(userId: string) {
+  const plan = await prisma.studyPlan.findUnique({ where: { userId } });
+  if (!plan) return null;
+  const today = todayBR(), monday = addDays(today, -((today.getUTCDay() + 6) % 7));
+  const [done, logs, todayTasks] = await Promise.all([
+    prisma.studyTask.findMany({ where: { userId, status: "FEITO", doneAt: { gte: addDays(monday, -1) } }, select: { doneAt: true, minutes: true } }),
+    prisma.studyQuestionLog.findMany({ where: { userId, date: { gte: monday } }, select: { date: true, minutes: true } }),
+    prisma.studyTask.findMany({ where: { userId, date: { gte: today, lt: addDays(today, 1) } }, select: { status: true } }),
+  ]);
+  const studied = new Map<string, number>();
+  const add = (k: string, m: number) => studied.set(k, (studied.get(k) ?? 0) + m);
+  done.forEach((t) => t.doneAt && add(dayKey(todayBR(t.doneAt)), t.minutes));
+  logs.forEach((l) => add(dayKey(l.date), l.minutes ?? 0));
+  const goal = minutesByDay(plan);
+  const days = Array.from({ length: 7 }, (_, i) => { const d = addDays(monday, i), k = dayKey(d);
+    return { dow: d.getUTCDay(), goal: goal[d.getUTCDay()], studied: studied.get(k) ?? 0, today: k === dayKey(today), past: k < dayKey(today) && k >= dayKey(plan.startDate ?? today) }; });
+  const t = days.find((d) => d.today)!;
+  return { title: plan.title, blockMinutes: plan.blockMinutes, hasHours: Boolean(plan.dayMinutes), days,
+    todayMin: t.studied, todayGoal: t.goal, weekMin: days.reduce((a, d) => a + d.studied, 0), weekGoal: days.reduce((a, d) => a + d.goal, 0),
+    tasksToday: todayTasks.length, tasksDone: todayTasks.filter((x) => x.status === "FEITO").length };
+}

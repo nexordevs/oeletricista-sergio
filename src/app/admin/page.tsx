@@ -4,9 +4,13 @@ import { adminMetrics } from "@/lib/admin-metrics";
 import { mpConfigured, env } from "@/lib/env";
 import { mailConfigured } from "@/lib/mail";
 import { brl, fmtDate } from "@/lib/money";
+import { requireAdmin } from "@/lib/auth";
+import { studyHours } from "@/lib/mentoria-server";
+import { HorasCard } from "./mentoria/HorasCard";
 
 export default async function AdminHome() {
-  const m = await adminMetrics();
+  const u = await requireAdmin();
+  const [m, horas] = await Promise.all([adminMetrics(), studyHours(u.id)]);
   const recent = await prisma.user.findMany({ where: { role: "ELECTRICIAN" }, orderBy: { createdAt: "desc" }, take: 6 });
   const checks = [
     { ok: mpConfigured(), label: "Mercado Pago (MP_ACCESS_TOKEN)" },
@@ -22,6 +26,7 @@ export default async function AdminHome() {
           <ul className="mt-2 space-y-1 text-sm">{checks.map((c) => <li key={c.label} className={c.ok ? "text-green-700" : "font-bold text-red-700"}>{c.ok ? "✓" : "✗"} {c.label}</li>)}</ul>
         </section>
       )}
+      {horas && <HorasCard h={horas} dashboard />}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <K l="Assinantes (total de contas)" v={String(m.users)} />
         <K l="Assinantes ativos" v={String(m.active)} s={`+ ${m.manual} com acesso manual`} />

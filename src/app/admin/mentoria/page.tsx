@@ -2,11 +2,12 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { fmtDate } from "@/lib/money";
 import { ConfirmButton } from "@/components/ConfirmButton";
-import { ensureSetup, buildSchedule } from "@/lib/mentoria-server";
+import { ensureSetup, buildSchedule, studyHours } from "@/lib/mentoria-server";
 import { todayBR, addDays, dayKey, parseList, streak, minutesByDay, fmtHours, videoLink, DIAS, KIND_LABEL } from "@/lib/mentoria";
 import { generateSchedule, rebuildSchedule, setTopicVideo, undoTask, deleteTask, rescheduleLate, toggleTopic, deleteTopic, deleteSubject } from "./actions";
 import { PlanForm, DoneForm, RescheduleForm, AddTaskForm, SubjectForm, TopicForm, EditalImportForm } from "./forms";
-import { HoursChart, SimuladosChart } from "./Graficos";
+import { SimuladosChart } from "./Graficos";
+import { HorasCard } from "./HorasCard";
 import { MentoriaTabs } from "./Tabs";
 
 export const metadata = { title: "Mentoria de estudos" };
@@ -29,6 +30,7 @@ export default async function Mentoria() {
     prisma.studyTask.findMany({ where: { userId: u.id, kind: "SIMULADO", status: "FEITO", questions: { gt: 0 } }, orderBy: { date: "asc" }, take: 20 }),
   ]);
   const studyDays = parseList(plan.studyDays);
+  const horas = (await studyHours(u.id))!;
   // questões lançadas na aba Questões contam nas metas, acertos, horas e sequência
   const qlogs = await prisma.studyQuestionLog.findMany({ where: { userId: u.id, date: { gte: addDays(today, -120) } }, select: { date: true, minutes: true, questions: true, correct: true, subjectId: true } });
   const activity = [...doneAll.map((t) => ({ day: t.doneAt ? dayKey(todayBR(t.doneAt)) : "", minutes: t.minutes, questions: t.questions ?? 0, correct: t.correct ?? 0, subjectId: t.subjectId })),
@@ -37,10 +39,7 @@ export default async function Mentoria() {
   // indicadores
   const minutesOn = (k: string) => activity.filter((t) => t.day === k).reduce((a, t) => a + t.minutes, 0);
   const weekDone = activity.filter((t) => t.day && t.day >= dayKey(weekStart));
-  const weekMin = weekDone.reduce((a, t) => a + t.minutes, 0);
   const dayMin = minutesByDay(plan);
-  const todayGoal = dayMin[today.getUTCDay()];
-  const weekGoalMin = dayMin.reduce((a, m) => a + m, 0);
   const weekQ = weekDone.reduce((a, t) => a + (t.questions ?? 0), 0);
   const allQ = activity.reduce((a, t) => a + t.questions, 0), allC = activity.reduce((a, t) => a + t.correct, 0);
   const acc = allQ > 0 ? Math.round((allC / allQ) * 100) : null;
@@ -51,11 +50,9 @@ export default async function Mentoria() {
     return { l: "DSTQQSS"[i], state: activeDays.has(k) ? "ok" : k === dayKey(today) ? "hoje" : d > today ? "futuro" : k < dayKey(plan.startDate ?? today) ? "descanso" : studyDays.includes(i) ? "faltou" : "descanso" }; });
   const todayTasks = tasks.filter((t) => dayKey(t.date) === tk);
   const todayDone = todayTasks.filter((t) => t.status === "FEITO").length;
-  const todayMin = minutesOn(tk);
   const daysLeft = plan.examDate ? Math.ceil((plan.examDate.getTime() - today.getTime()) / 864e5) : null;
   const totalTopics = subjects.reduce((a, s) => a + s.topics.length, 0), seenTopics = subjects.reduce((a, s) => a + s.topics.filter((t) => t.studiedAt).length, 0);
   const upcoming = [1, 2, 3, 4, 5, 6, 7].map((i) => { const d = addDays(today, i); return { d, items: tasks.filter((t) => dayKey(t.date) === dayKey(d)) }; });
-  const hours = Array.from({ length: 14 }, (_, i) => { const d = addDays(today, i - 13); return { label: i === 13 ? "hoje" : `${WEEK[d.getUTCDay()]}`, minutes: minutesOn(dayKey(d)), today: i === 13 }; });
   const simPts = simulados.map((s) => ({ label: fmtDate(s.date).slice(0, 5), pct: Math.round(((s.correct ?? 0) / (s.questions || 1)) * 100), detail: `${s.correct ?? 0} de ${s.questions} questões` }));
   const accBy = (id: string) => { const ts = activity.filter((t) => t.subjectId === id && t.questions > 0); const q = ts.reduce((a, t) => a + t.questions, 0); return q ? Math.round((ts.reduce((a, t) => a + t.correct, 0) / q) * 100) : null; };
   const subjOpts = subjects.map((s) => ({ id: s.id, name: s.name }));
@@ -117,10 +114,9 @@ export default async function Mentoria() {
         </div>
       </section>
 
-      {/* METAS */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Meter label={todayGoal > 0 ? "Hoje" : "Hoje (descanso)"} value={todayMin} goal={todayGoal} fmt={hm} />
-        <Meter label="Horas na semana" value={weekMin} goal={weekGoalMin} fmt={hm} />
+      {/* HORAS + METAS */}
+      <HorasCard h={horas} />
+      <div className="grid grid-cols-2 gap-3">
         <Meter label="Questões na semana" value={weekQ} goal={plan.weeklyQuestions} fmt={(n) => String(n)} />
         <div className="card"><p className="text-xs font-bold uppercase text-muted">Acerto geral</p><p className="mt-1 text-xl font-bold text-navy">{acc != null ? `${acc}%` : "—"}</p><p className="mt-1 text-xs text-muted">{allQ ? `${allC} de ${allQ} questões (120 dias)` : <>lance na aba <a href="/admin/mentoria/questoes" className="font-bold underline">Questões</a></>}</p>{acc != null && acc < 50 && <p className="mt-1 text-xs font-bold text-red-700">abaixo dos 50% da prova</p>}</div>
       </div>
@@ -150,16 +146,6 @@ export default async function Mentoria() {
             {todayTasks.length > 0 && todayDone === todayTasks.length && <p className="border-t border-line px-5 py-3 text-sm font-bold text-green-700">🏆 Tudo feito hoje! Mandou bem, Sergio.</p>}
           </section>
 
-          {/* MINHAS HORAS */}
-          <section className="card">
-            <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-lg font-bold text-navy">Minhas horas de estudo</p><a href="#plano" className="text-sm font-bold text-navy underline">editar horas</a></div>
-            <div className="mt-3 grid grid-cols-7 gap-1.5 text-center">{DIAS.map((d, i) => (
-              <div key={d} className={`rounded-xl py-2 ${i === today.getUTCDay() ? "ring-2 ring-brand" : ""} ${dayMin[i] > 0 ? "bg-navy text-white" : "bg-light text-muted"}`}>
-                <p className="text-[11px] font-bold uppercase opacity-80">{d}</p><p className="text-sm font-bold">{dayMin[i] > 0 ? fmtHours(dayMin[i]) : "folga"}</p>
-              </div>))}</div>
-            <p className="mt-2 text-sm text-muted">Total: <b className="text-ink">{fmtHours(weekGoalMin)} por semana</b> · blocos de {plan.blockMinutes} min{!plan.dayMinutes && <b className="text-red-700"> · confira suas horas em “Plano e metas”</b>}</p>
-          </section>
-
           {/* CRONOGRAMA */}
           <section className="card p-0">
             <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4">
@@ -187,7 +173,6 @@ export default async function Mentoria() {
 
           {/* GRÁFICOS */}
           <section className="card space-y-6">
-            <div><p className="text-lg font-bold text-navy">Horas estudadas · 14 dias</p><p className="mb-2 text-sm text-muted">Passe o dedo nas colunas para ver o tempo de cada dia</p><HoursChart days={hours} goal={plan.dailyMinutes} /></div>
             <div><p className="text-lg font-bold text-navy">Simulados · % de acertos</p><p className="mb-2 text-sm text-muted">Na prova é preciso 50% do total e 40% em cada matéria</p><SimuladosChart points={simPts} />
               {simulados.length > 0 && <details className="mt-2 text-sm"><summary className="cursor-pointer font-bold text-navy">Ver em tabela</summary><table className="mt-2 w-full text-right"><thead className="text-xs uppercase text-muted"><tr><th className="text-left">Data</th><th>Acertos</th><th>%</th></tr></thead><tbody>{simulados.map((s) => <tr key={s.id} className="border-t border-line"><td className="py-1 text-left">{fmtDate(s.date)}</td><td>{s.correct ?? 0}/{s.questions}</td><td>{Math.round(((s.correct ?? 0) / (s.questions || 1)) * 100)}%</td></tr>)}</tbody></table></details>}
             </div>
