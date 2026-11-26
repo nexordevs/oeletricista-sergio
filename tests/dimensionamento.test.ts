@@ -88,19 +88,25 @@ test("materiais dizem onde usar e separam fase, neutro e terra", async () => {
 });
 
 test("tamanho digitado: área ou medidas, e a casa montada por ele", async () => {
-  const { parseTamanho, montarPorArea, comodosPorArea, distanciaPorArea, PRESETS } = await import("../src/lib/eletrica/dimensionamento");
+  const { parseTamanho, montarCasa, comodosPorArea, distanciaPorArea, PRESETS } = await import("../src/lib/eletrica/dimensionamento");
   assert.deepEqual(parseTamanho("10x20"), { area: 200, lado: 15, frente: 10, fundo: 20 });
   assert.equal(parseTamanho("10,5 X 20 m")!.area, 210);
   assert.equal(parseTamanho("120 m²")!.area, 120);
   assert.equal(parseTamanho("abc"), null);
   assert.ok(distanciaPorArea(200, "tomadas", "terrea", 15) > distanciaPorArea(200, "tomadas"), "terreno comprido anda mais fio que quadrado");
   for (const area of [40, 75, 120, 200, 300]) for (const imovel of ["terrea", "apartamento", "sobrado"] as const) {
-    const c = comodosPorArea(area), lista = montarPorArea({ area, ...c, imovel, ar: true });
+    const c = { ...comodosPorArea(area, imovel), copas: 1, escritorios: 1, gourmet: 1, garagens: 1, piscina: true, arSala: true }, lista = montarCasa(c, area, imovel);
     for (const x of lista) assert.ok(PRESETS.some((p) => p.nome.startsWith(x.nome)), `${x.nome} existe na lista`);
-    assert.equal(lista.find((x) => x.nome.startsWith("Chuveiro"))!.qtd, c.banheiros);
+    assert.equal(lista.find((x) => x.nome.startsWith("Chuveiro"))!.qtd, c.banheiros + c.suites);
   }
-  assert.ok(comodosPorArea(200).quartos > comodosPorArea(60).quartos);
-  assert.ok(!montarPorArea({ area: 100, quartos: 3, banheiros: 2, imovel: "terrea", ar: false }).some((x) => x.nome.startsWith("Split")));
+  const q = (a: number) => comodosPorArea(a).quartos + comodosPorArea(a).suites;
+  assert.ok(q(200) > q(60));
+  // casa do jeito que está: 2 quartos, 1 banheiro, sala, cozinha, serviço, sem ar
+  const casa = { ...comodosPorArea(60), quartos: 2, suites: 0, banheiros: 1, salas: 1, arQuartos: false, arSala: false };
+  const l = montarCasa(casa, 60, "terrea");
+  assert.ok(!l.some((x) => x.nome.startsWith("Split")));
+  assert.equal(l.find((x) => x.nome === "Chuveiro 7.500 W")!.qtd, 1);
+  assert.equal(l.find((x) => x.nome === "Tomadas de sala/quartos")!.qtd, 2); // 2 quartos + sala → 2 circuitos
 });
 
 test("concessionária: categoria de entrada e tensão do sistema", async () => {

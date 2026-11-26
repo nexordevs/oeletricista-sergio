@@ -371,7 +371,7 @@ export const PRESETS: Preset[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 export type Entrada3 = "mono" | "bi" | "tri"; // padrão de entrada: F+N 220 V | 2F+N 380/220 V | 3F+N 380/220 V
 export type Carga = { nome: string; potenciaW: number; quantidade: number; comprimentoM: number; tipo: TipoCircuito; areaMolhada: boolean; fp: number; sistema: Sistema; tensao: number };
-export type ConfigObra = { entrada: Entrada3; metodo: Metodo; temperatura: number; quedaMax: number; agrupados: number; distanciaEntradaM: number; concessionaria?: string };
+export type ConfigObra = { entrada: Entrada3; metodo: Metodo; temperatura: number; quedaMax: number; agrupados: number; distanciaEntradaM: number; concessionaria?: string; sistema?: "380/220" | "220/127" };
 export type CircuitoCalc = { n: number; carga: Carga; r: Resultado; polos: 1 | 2 | 3 };
 export type ItemMaterial = { chave: string; nome: string; catalogo: string | null; unidade: string; qtd: number; uso: string; detalhe?: string };
 export type Projeto = {
@@ -401,33 +401,56 @@ export function parseTamanho(txt: string): { area: number; lado?: number; frente
   const n = Number(t); return n > 0 ? { area: Math.round(n) } : null;
 }
 
-/** Programa da casa estimado pela área (o eletricista ajusta). */
-export function comodosPorArea(area: number) {
-  const quartos = area < 45 ? 1 : area < 75 ? 2 : area < 130 ? 3 : area < 260 ? 4 : 5;
-  const banheiros = area < 70 ? 1 : area <= 130 ? 2 : area < 220 ? 3 : 4;
-  return { quartos, banheiros };
+/** Cômodos e extras da casa (o eletricista marca como a casa é). */
+export type Comodos = {
+  quartos: number; suites: number; banheiros: number; salas: number; cozinhas: number; copas: number; servico: number;
+  varandas: number; gourmet: number; garagens: number; escritorios: number;
+  arQuartos: boolean; arSala: boolean; quintal: boolean; portao: boolean; bomba: boolean; piscina: boolean;
+};
+export const COMODOS_ROTULO: Record<keyof Comodos, string> = {
+  quartos: "Quartos", suites: "Suítes (quarto + banheiro)", banheiros: "Banheiros sociais / lavabos", salas: "Salas", cozinhas: "Cozinhas", copas: "Copas",
+  servico: "Áreas de serviço", varandas: "Varandas", gourmet: "Varandas gourmet", garagens: "Garagens", escritorios: "Escritórios",
+  arQuartos: "Ar nos quartos", arSala: "Ar na sala", quintal: "Quintal / área externa", portao: "Portão eletrônico", bomba: "Bomba d'água", piscina: "Piscina",
+};
+
+/** Programa da casa estimado pela área (ponto de partida; o eletricista ajusta). */
+export function comodosPorArea(area: number, imovel: TipoImovel = "terrea"): Comodos {
+  const dorm = area < 45 ? 1 : area < 75 ? 2 : area < 130 ? 3 : area < 260 ? 4 : 5;
+  const suites = area >= 90 ? Math.min(dorm, area >= 200 ? 2 : 1) : 0;
+  const casa = imovel !== "apartamento";
+  return {
+    quartos: dorm - suites, suites, banheiros: area < 70 ? 1 : area <= 130 ? 1 : 2, salas: area >= 160 ? 2 : 1, cozinhas: 1, copas: 0, servico: 1,
+    varandas: casa || area >= 70 ? 1 : 0, gourmet: area >= 150 ? 1 : 0, garagens: casa && area >= 90 ? 1 : 0, escritorios: area >= 180 ? 1 : 0,
+    arQuartos: true, arSala: area >= 90, quintal: casa, portao: casa && area >= 90, bomba: casa, piscina: false,
+  };
 }
 
-/** Monta as cargas típicas de uma residência pelo tamanho (critérios da NBR 5410 para quantidade de circuitos
- *  e potências usuais de mercado). Devolve nomes da lista de aparelhos + quantidade de circuitos. */
-export function montarPorArea(o: { area: number; quartos: number; banheiros: number; imovel: TipoImovel; ar: boolean }): { nome: string; qtd: number }[] {
-  const { area, quartos, banheiros, imovel, ar } = o;
+/** Monta os circuitos da casa pelos cômodos (critérios da NBR 5410: chuveiro e ar em circuito próprio,
+ *  cozinha/serviço/banheiro com tomadas separadas, sala e quartos agrupados de 2 em 2). */
+export function montarCasa(c: Comodos, area: number, imovel: TipoImovel): { nome: string; qtd: number }[] {
   const out: { nome: string; qtd: number }[] = [];
   const add = (nome: string, qtd: number) => { if (qtd > 0) out.push({ nome, qtd }); };
-  add("Chuveiro 7.500 W", banheiros);
-  if (ar) { add("Split inverter 9.000 BTU", Math.max(0, quartos - (quartos >= 3 ? 1 : 0))); if (quartos >= 3) add("Split inverter 12.000 BTU", 1); if (area >= 90) add("Split inverter 18.000 BTU", 1); }
-  add("Tomadas da cozinha", area >= 150 ? 2 : 1);
-  add("Micro-ondas", 1);
-  add("Tomadas da área de serviço", 1);
-  add("Tomadas de sala/quartos", Math.ceil((quartos + 1) / 2)); // sala + quartos, 2 cômodos por circuito
-  add("Tomadas do banheiro", Math.ceil(banheiros / 2));
-  const ilum = Math.max(1, Math.ceil((area * 6) / 1000)); // LED ~6 W/m², até ~1.000 W por circuito
-  add(imovel === "apartamento" ? (quartos <= 2 ? "Iluminação de apartamento 2 quartos" : "Iluminação de apartamento 3 quartos") : "Iluminação interna da casa", imovel === "apartamento" ? 1 : Math.max(area > 60 ? 2 : 1, ilum));
-  if (imovel !== "apartamento") {
-    add("Tomadas da área externa / varanda", 1);
-    add("Iluminação externa / jardim", 1);
-    if (area >= 90) { add("Portão eletrônico", 1); add("Bomba d'água 1/2 cv", 1); }
-  }
+  const molhados = c.banheiros + c.suites;
+  add("Chuveiro 7.500 W", molhados);
+  if (c.arQuartos) { add("Split inverter 9.000 BTU", c.quartos); add("Split inverter 12.000 BTU", c.suites); }
+  if (c.arSala) add(area >= 120 ? "Split inverter 18.000 BTU" : "Split inverter 12.000 BTU", c.salas);
+  add("Tomadas da cozinha", c.cozinhas);
+  add("Micro-ondas", c.cozinhas > 0 ? 1 : 0);
+  add("Tomadas da copa", c.copas);
+  add("Tomadas da área de serviço", c.servico);
+  add("Tomadas de sala/quartos", Math.ceil((c.quartos + c.suites + c.salas) / 2));
+  add("Tomadas do escritório", c.escritorios);
+  add("Tomadas do banheiro", Math.ceil(molhados / 2));
+  add("Tomadas da varanda gourmet", c.gourmet);
+  add("Tomadas da área externa / varanda", c.varandas + (c.quintal ? 1 : 0) > 0 ? Math.ceil((c.varandas + (c.quintal ? 1 : 0)) / 2) : 0);
+  add("Tomadas da garagem", c.garagens);
+  const ambientes = c.quartos + c.suites + c.salas + c.cozinhas + c.copas + c.servico + molhados + c.escritorios + c.gourmet;
+  if (imovel === "apartamento") add(c.quartos + c.suites <= 2 ? "Iluminação de apartamento 2 quartos" : "Iluminação de apartamento 3 quartos", Math.max(1, Math.ceil(ambientes / 10)));
+  else add("Iluminação interna da casa", Math.max(1, Math.ceil(ambientes / 6)));
+  if (c.quintal || c.garagens > 0 || (imovel !== "apartamento" && c.varandas > 0)) add("Iluminação externa / jardim", 1);
+  if (c.portao) add("Portão eletrônico", 1);
+  if (c.bomba) add("Bomba d'água 1/2 cv", 1);
+  if (c.piscina) { add("Bomba de piscina 1/2 cv", 1); add("Iluminação de piscina LED", 1); }
   return out;
 }
 
@@ -468,8 +491,8 @@ export function ajustarTensao(c: Carga, sistema: "380/220" | "220/127"): Carga {
 
 export function projetoCompleto(cargasIn: Carga[], cfg: ConfigObra): Projeto {
   const avisos: string[] = [];
-  const conc = concessionaria(cfg.concessionaria ?? CONCESSIONARIA_PADRAO), TENSAO_FN = tensaoFN(conc.sistema);
-  const cargas = cargasIn.map((c) => ajustarTensao(c, conc.sistema));
+  const conc = concessionaria(cfg.concessionaria ?? CONCESSIONARIA_PADRAO), sist = cfg.sistema ?? conc.sistema, TENSAO_FN = tensaoFN(sist);
+  const cargas = cargasIn.map((c) => ajustarTensao(c, sist));
   const circuitos: CircuitoCalc[] = [];
   let n = 0;
   for (const c of cargas) {
@@ -562,7 +585,7 @@ export function projetoCompleto(cargasIn: Carga[], cfg: ConfigObra): Projeto {
     demandaIlumTug: Math.round(ilumTug * fIT), demandaTue: Math.round(tueVa * fT), demanda: Math.round(demanda), fatorIlumTug: fIT, fatorTue: fT,
     correnteDemanda: Math.round(correnteDemanda * 10) / 10, geral, polosGeral,
     dr: { polos: drPolos, corrente: drCorrente, motivo: molhada ? "obrigatório: há área molhada" : "recomendado" },
-    categoria: cat ? `${nomeLigacao(cat.fases, conc.sistema)} – disjuntor ${cat.disjuntor} A` : null, concessionaria: conc.nome,
+    categoria: cat ? `${nomeLigacao(cat.fases, sist)} – disjuntor ${cat.disjuntor} A` : null, concessionaria: conc.nome,
     dps, modulos, reserva, quadro, materiais: [...mat.values()].sort((a, b) => ordem(a.chave) - ordem(b.chave)), avisos,
   };
 }
