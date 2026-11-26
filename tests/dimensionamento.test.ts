@@ -66,3 +66,23 @@ test("vários circuitos: demanda, geral, quadro e materiais", async () => {
   assert.ok(cabo6 && cabo6.catalogo === "Cabo flexível 6 mm² 750 V", "chuveiro 7500 W em 6 mm²");
   assert.ok(p.materiais.some((m) => m.catalogo === "Disjuntor DIN unipolar 40 A"));
 });
+
+test("distância do fio sai do tamanho do imóvel", async () => {
+  const { distanciaPorArea } = await import("../src/lib/eletrica/dimensionamento");
+  assert.ok(distanciaPorArea(200, "tomadas") > distanciaPorArea(60, "tomadas"), "casa maior, mais fio");
+  assert.ok(distanciaPorArea(100, "iluminacao") > distanciaPorArea(100, "dedicado"), "iluminação passa por mais pontos que o chuveiro");
+  assert.equal(distanciaPorArea(100, "dedicado", "sobrado"), distanciaPorArea(100, "dedicado") + 3);
+  assert.equal(distanciaPorArea(0, "tomadas"), 15);
+});
+
+test("materiais dizem onde usar e separam fase, neutro e terra", async () => {
+  const { projetoCompleto } = await import("../src/lib/eletrica/dimensionamento");
+  const c = (nome: string, w: number, tipo: "iluminacao" | "tomadas" | "dedicado", mol = false) => ({ nome, potenciaW: w, quantidade: 1, comprimentoM: 10, tipo, areaMolhada: mol, fp: 1, sistema: "mono" as const, tensao: 220 });
+  const p = projetoCompleto([c("Chuveiro", 7500, "dedicado", true), c("Tomadas", 1200, "tomadas")], { entrada: "mono", metodo: "B1", temperatura: 30, quedaMax: 4, agrupados: 1, distanciaEntradaM: 10 });
+  const c6 = p.materiais.find((m) => m.chave === "cabo-6")!;
+  assert.equal(c6.uso, "Chuveiro · Entrada: medidor → quadro");
+  assert.match(c6.detalhe!, /fase 22 m.*neutro 22 m.*terra 22 m/);
+  assert.equal(c6.qtd, 66);
+  assert.ok(p.materiais.every((m) => m.uso.length > 0), "todo material tem onde usar");
+  assert.match(p.materiais.find((m) => m.chave === "dr")!.uso, /Chuveiro/);
+});

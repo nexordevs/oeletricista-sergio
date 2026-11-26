@@ -73,7 +73,13 @@ export function dimensionar(e: Entrada): Resultado {
   const minimoNorma = e.tipo === "iluminacao" ? 1.5 : 2.5;
   const curva: "B" | "C" = e.tipo === "motor" ? "C" : "B";
 
-  const disjuntor = DISJUNTORES.find((d) => d >= ib) ?? null;
+  let disjuntor: number | null = DISJUNTORES.find((d) => d >= ib) ?? null;
+  // prática usual: iluminação ≥ 10 A e tomadas ≥ 16 A (um 6 A desarma com secador/ferro), se o fio mínimo aguentar
+  const piso = e.tipo === "iluminacao" ? 10 : e.tipo === "tomadas" ? 16 : 0;
+  if (disjuntor && disjuntor < piso) {
+    const izMin = TAB36[e.metodo][SECOES.indexOf(minimoNorma as (typeof SECOES)[number])][carregados] * fatorTemp * fatorAgrup;
+    disjuntor = [...DISJUNTORES].reverse().find((d) => d <= piso && d <= izMin && d >= disjuntor!) ?? disjuntor;
+  }
   if (!disjuntor) avisos.push("Corrente acima de 125 A: projeto específico com disjuntor e condutores maiores.");
 
   let secao: number | null = null, iz: number | null = null, motivoSecao = "";
@@ -103,7 +109,7 @@ export function dimensionar(e: Entrada): Resultado {
   const dr: Resultado["dr"] = e.areaMolhada ? "obrigatorio" : "recomendado";
   if (e.tipo === "motor") avisos.push("Motor: considere a corrente de partida (curva C/D ou disjuntor-motor) e a proteção por relé térmico.");
   if (e.fp < 1 && e.tipo !== "motor" && e.tipo !== "dedicado") avisos.push("Verifique o fator de potência na placa do equipamento.");
-  if (ib > 0 && disjuntor && disjuntor / ib > 1.6) avisos.push("Disjuntor bem acima da corrente de projeto: confira se a potência informada está correta.");
+  if (ib > 0 && disjuntor && disjuntor > piso && disjuntor / ib > 1.6) avisos.push("Disjuntor bem acima da corrente de projeto: confira se a potência informada está correta.");
 
   return {
     ib: r1(ib), fatorTemp, fatorAgrup, disjuntor, curva, secao, iz: iz ? r1(iz) : null, neutro, terra,
@@ -366,13 +372,25 @@ export type Entrada3 = "mono" | "bi" | "tri"; // padrão de entrada: F+N 220 V |
 export type Carga = { nome: string; potenciaW: number; quantidade: number; comprimentoM: number; tipo: TipoCircuito; areaMolhada: boolean; fp: number; sistema: Sistema; tensao: number };
 export type ConfigObra = { entrada: Entrada3; metodo: Metodo; temperatura: number; quedaMax: number; agrupados: number; distanciaEntradaM: number };
 export type CircuitoCalc = { n: number; carga: Carga; r: Resultado; polos: 1 | 2 | 3 };
-export type ItemMaterial = { chave: string; nome: string; catalogo: string | null; unidade: string; qtd: number };
+export type ItemMaterial = { chave: string; nome: string; catalogo: string | null; unidade: string; qtd: number; uso: string; detalhe?: string };
 export type Projeto = {
   circuitos: CircuitoCalc[]; potenciaInstalada: number; demandaIlumTug: number; demandaTue: number; demanda: number;
   fatorIlumTug: number; fatorTue: number; correnteDemanda: number; geral: Resultado; polosGeral: 2 | 3;
   dr: { polos: 2 | 4; corrente: number; motivo: string }; dps: number; modulos: number; reserva: number; quadro: number;
   materiais: ItemMaterial[]; avisos: string[];
 };
+
+/** Distância média de fio (quadro → pontos) estimada pelo tamanho do imóvel.
+ *  lado ≈ √área; circuitos com vários pontos (iluminação, tomadas) andam mais que um ponto só (chuveiro, ar);
+ *  + 3 m de descidas/subidas nas paredes; sobrado soma +3 m (pé-direito). */
+export type TipoImovel = "terrea" | "apartamento" | "sobrado";
+export const IMOVEIS: Record<TipoImovel, string> = { terrea: "Casa térrea", apartamento: "Apartamento", sobrado: "Sobrado (2 andares)" };
+export function distanciaPorArea(areaM2: number, tipo: TipoCircuito, imovel: TipoImovel = "terrea"): number {
+  if (!(areaM2 > 0)) return 15;
+  const lado = Math.sqrt(areaM2);
+  const k = tipo === "iluminacao" ? 2 : tipo === "tomadas" ? 1.6 : tipo === "motor" ? 1.2 : 1;
+  return Math.max(5, Math.round(lado * k + 3 + (imovel === "sobrado" ? 3 : 0)));
+}
 
 // Fatores de demanda de REFERÊNCIA (método usual em projeto residencial; a concessionária pode exigir outro)
 function fatorIlumTug(kw: number) {
@@ -441,29 +459,50 @@ export function projetoCompleto(cargas: Carga[], cfg: ConfigObra): Projeto {
   const quadro = QUADROS.find((q) => q >= modulos + reserva) ?? 48;
   if (modulos + reserva > 48) avisos.push("Muitos circuitos: use quadro maior ou divida em quadros parciais.");
 
-  // Lista de materiais
+  // Lista de materiais (com "onde usar")
   const mat = new Map<string, ItemMaterial>();
-  const add = (chave: string, nome: string, catalogo: string | null, unidade: string, qtd: number) => {
-    const ex = mat.get(chave); if (ex) ex.qtd += qtd; else mat.set(chave, { chave, nome, catalogo, unidade, qtd });
+  const add = (chave: string, nome: string, catalogo: string | null, unidade: string, qtd: number, uso: string) => {
+    const ex = mat.get(chave); if (ex) ex.qtd += qtd; else mat.set(chave, { chave, nome, catalogo, unidade, qtd, uso });
   };
-  const cabo = (s: number | null, metros: number) => { if (s && metros > 0) add(`cabo-${s}`, `Cabo flexível ${bitola(s)} mm² 750 V`, nomeCabo(s), "m", metros); };
+  // cabos: metros por função (fase/neutro/terra) e em quais circuitos entram
+  type Papel = "fase" | "neutro" | "terra";
+  const cabos = new Map<number, { m: Record<Papel, number>; usos: Map<string, number> }>();
+  const cabo = (sec: number | null, papel: Papel, metros: number, onde: string) => {
+    if (!sec || !(metros > 0)) return;
+    const c = cabos.get(sec) ?? { m: { fase: 0, neutro: 0, terra: 0 }, usos: new Map() };
+    c.m[papel] += metros; c.usos.set(onde, (c.usos.get(onde) ?? 0) + (papel === "fase" ? 1 : 0)); cabos.set(sec, c); // conta 1 por circuito
+  };
+  const djUsos = new Map<string, string[]>();
   for (const c of circuitos) {
-    const L = Math.max(1, c.carga.comprimentoM);
-    const condutoresFase = c.polos === 1 ? 2 : c.polos; // F+N | 2F | 3F
-    cabo(c.r.secao, L * condutoresFase);
-    cabo(c.r.terra, L);
-    if (c.r.disjuntor) add(`dj-${c.polos}-${c.r.disjuntor}`, `Disjuntor DIN ${["", "unipolar", "bipolar", "tripolar"][c.polos]} ${c.r.disjuntor} A curva ${c.r.curva}`, nomeDisjuntor(c.polos, c.r.disjuntor), "un", 1);
+    const L = Math.max(1, c.carga.comprimentoM), nome = c.carga.nome;
+    if (c.polos === 1) { cabo(c.r.secao, "fase", L, nome); cabo(c.r.secao, "neutro", L, nome); }
+    else cabo(c.r.secao, "fase", L * c.polos, nome);
+    if (c.r.terra === c.r.secao) cabo(c.r.terra, "terra", L, nome); else cabo(c.r.terra, "terra", L, `${nome} (só terra)`);
+    if (c.r.disjuntor) {
+      const k = `dj-${c.polos}-${c.r.disjuntor}`;
+      add(k, `Disjuntor DIN ${["", "unipolar", "bipolar", "tripolar"][c.polos]} ${c.r.disjuntor} A curva ${c.r.curva}`, nomeDisjuntor(c.polos, c.r.disjuntor), "un", 1, "");
+      djUsos.set(k, [...(djUsos.get(k) ?? []), `C${c.n} ${nome}`]);
+    }
   }
-  cabo(geral.secao, Math.max(1, cfg.distanciaEntradaM) * (fases + 1));
-  cabo(geral.terra, Math.max(1, cfg.distanciaEntradaM));
-  if (geral.disjuntor) add(`geral`, `Disjuntor geral ${polosGeral === 2 ? "bipolar" : "tripolar"} ${geral.disjuntor} A`, nomeDisjuntor(polosGeral, geral.disjuntor), "un", 1);
-  add("dr", `Interruptor DR ${drPolos === 2 ? "bipolar" : "tetrapolar"} ${drCorrente} A 30 mA`, drPolos === 2 ? (drCorrente <= 40 ? "Interruptor DR bipolar 25/40 A 30 mA" : null) : drCorrente <= 40 ? "Interruptor DR tetrapolar 40 A 30 mA" : drCorrente <= 63 ? "Interruptor DR tetrapolar 63 A 30 mA" : null, "un", 1);
-  add("dps", "DPS 275 V 20 kA", "DPS 275 V 20 kA", "un", dps);
-  add("quadro", `Quadro de distribuição ${quadro} disjuntores`, quadro <= 6 ? "Quadro de distribuição embutir 4 a 6 disjuntores" : quadro <= 18 ? `Quadro de distribuição embutir ${quadro} disjuntores` : quadro <= 36 ? `Quadro de distribuição embutir ${quadro} disjuntores (com barramento)` : null, "un", 1);
-  if (fases > 1 || circuitos.length > 6) add("barr", "Barramento pente bipolar/tripolar", "Barramento pente bipolar/tripolar", "un", 1);
-  add("neutro", "Barramento de neutro ou terra", "Barramento de neutro ou terra", "un", 2);
-  // sobra de 10% nos cabos, arredondada para cima
-  for (const m of mat.values()) if (m.unidade === "m") m.qtd = Math.ceil(m.qtd * 1.1);
+  const Le = Math.max(1, cfg.distanciaEntradaM), entradaTxt = "Entrada: medidor → quadro";
+  cabo(geral.secao, "fase", Le * fases, entradaTxt); cabo(geral.secao, "neutro", Le, entradaTxt); cabo(geral.terra, "terra", Le, geral.terra === geral.secao ? entradaTxt : `${entradaTxt} (só terra)`);
+  const juntar = (m: Map<string, number>) => [...m.entries()].map(([n, q]) => (q > 1 ? `${n} ×${q}` : n)).join(" · ");
+  for (const [sec, c] of cabos) {
+    const r = { fase: Math.ceil(c.m.fase * 1.1), neutro: Math.ceil(c.m.neutro * 1.1), terra: Math.ceil(c.m.terra * 1.1) }; // 10% de sobra
+    const rolo = (m: number) => (m >= 60 ? `, ${Math.ceil(m / 100)} rolo${m > 100 ? "s" : ""} de 100 m` : "");
+    const det = [r.fase && `fase ${r.fase} m (preto ou vermelho${rolo(r.fase)})`, r.neutro && `neutro ${r.neutro} m (azul claro${rolo(r.neutro)})`, r.terra && `terra ${r.terra} m (verde ou verde-amarelo${rolo(r.terra)})`].filter(Boolean).join(" · ");
+    mat.set(`cabo-${sec}`, { chave: `cabo-${sec}`, nome: `Cabo flexível ${bitola(sec)} mm² 750 V`, catalogo: nomeCabo(sec), unidade: "m", qtd: r.fase + r.neutro + r.terra, uso: juntar(c.usos), detalhe: det });
+  }
+  for (const [k, us] of djUsos) mat.get(k)!.uso = `No quadro, protege: ${us.join(" · ")}`;
+  if (geral.disjuntor) add(`geral`, `Disjuntor geral ${polosGeral === 2 ? "bipolar" : "tripolar"} ${geral.disjuntor} A`, nomeDisjuntor(polosGeral, geral.disjuntor), "un", 1, "Primeiro do quadro, recebe o cabo que vem do medidor e desliga a casa toda");
+  const areasMolhadas = [...new Set(circuitos.filter((c) => c.carga.areaMolhada).map((c) => c.carga.nome))];
+  add("dr", `Interruptor DR ${drPolos === 2 ? "bipolar" : "tetrapolar"} ${drCorrente} A 30 mA`, drPolos === 2 ? (drCorrente <= 40 ? "Interruptor DR bipolar 25/40 A 30 mA" : null) : drCorrente <= 40 ? "Interruptor DR tetrapolar 40 A 30 mA" : drCorrente <= 63 ? "Interruptor DR tetrapolar 63 A 30 mA" : null, "un", 1,
+    `Logo depois do geral, alimenta os disjuntores dos circuitos: desarma em fuga de corrente (choque)${areasMolhadas.length ? `. Obrigatório para: ${areasMolhadas.join(", ")}` : ""}`);
+  add("dps", "DPS 275 V 20 kA", "DPS 275 V 20 kA", "un", dps, `No quadro, ${fases === 1 ? "1 na fase" : `1 em cada fase (${fases})`} + 1 no neutro, ligados ao barramento de terra: protege contra surtos e raios`);
+  add("quadro", `Quadro de distribuição ${quadro} disjuntores`, quadro <= 6 ? "Quadro de distribuição embutir 4 a 6 disjuntores" : quadro <= 18 ? `Quadro de distribuição embutir ${quadro} disjuntores` : quadro <= 36 ? `Quadro de distribuição embutir ${quadro} disjuntores (com barramento)` : null, "un", 1,
+    `Cabe ${modulos} módulos (geral, DR, DPS e ${circuitos.length} circuitos) + ${reserva} de reserva para ampliar`);
+  if (fases > 1 || circuitos.length > 6) add("barr", "Barramento pente bipolar/tripolar", "Barramento pente bipolar/tripolar", "un", 1, "Liga a saída do DR a todos os disjuntores dos circuitos, sem emendas de fio");
+  add("neutro", "Barramento de neutro ou terra", "Barramento de neutro ou terra", "un", 2, "Dentro do quadro: 1 para juntar os neutros (azul) e 1 para os terras (verde), com o terra ligado ao aterramento");
   if (!molhada) avisos.push("Nenhuma área molhada marcada: o DR 30 mA continua recomendado para tomadas (NBR 5410 5.1.3.2.2).");
 
   return {
