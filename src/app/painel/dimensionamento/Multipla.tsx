@@ -1,9 +1,10 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { projetoCompleto, distanciaPorArea, parseTamanho, comodosPorArea, montarPorArea, METODOS, ENTRADAS, IMOVEIS, PRESETS, type Carga, type ConfigObra, type Entrada3, type Metodo, type TipoCircuito, type TipoImovel } from "@/lib/eletrica/dimensionamento";
+import { projetoCompleto, distanciaPorArea, parseTamanho, comodosPorArea, montarPorArea, METODOS, IMOVEIS, PRESETS, type Carga, type ConfigObra, type Entrada3, type Metodo, type TipoCircuito, type TipoImovel } from "@/lib/eletrica/dimensionamento";
 import { IconPlus, IconTrash } from "@/components/icons";
 import { BuscaAparelho } from "./BuscaAparelho";
+import { CONCESSIONARIAS, CONCESSIONARIA_PADRAO, concessionaria, nomeLigacao } from "@/lib/eletrica/concessionarias";
 
 const num = (s: string) => { const n = Number(String(s).replace(",", ".")); return Number.isFinite(n) ? n : 0; };
 const fmt = (n: number | null | undefined, d = 1) => (n == null ? "—" : n.toLocaleString("pt-BR", { maximumFractionDigits: d }));
@@ -19,14 +20,18 @@ const byName = (n: string) => PRESETS.findIndex((p) => p.nome.startsWith(n));
 export function Multipla() {
   const router = useRouter();
   const [linhas, setLinhas] = useState<Linha[]>([]);
-  const [cfg, setCfg] = useState({ area: "", imovel: "terrea" as TipoImovel, quartos: "", banheiros: "", entrada: "mono" as Entrada3, metodo: "B1" as Metodo, temperatura: "30", quedaMax: "4", agrupados: "2", distanciaEntradaM: "10" });
+  const [cfg, setCfg] = useState({ area: "", imovel: "terrea" as TipoImovel, quartos: "", banheiros: "", conc: CONCESSIONARIA_PADRAO, entrada: "mono" as Entrada3, metodo: "B1" as Metodo, temperatura: "30", quedaMax: "4", agrupados: "2", distanciaEntradaM: "10" });
   const [comAr, setComAr] = useState(true);
+  // lembra a concessionária escolhida neste aparelho
+  useEffect(() => { try { const c = localStorage.getItem("calc-concessionaria"); if (c && CONCESSIONARIAS.some((x) => x.id === c)) setCfg((p) => ({ ...p, conc: c })); } catch { /* sem storage */ } }, []);
+  const conc = concessionaria(cfg.conc);
   const tam = parseTamanho(cfg.area);
   const est = tam ? comodosPorArea(tam.area) : null;
   const dist = (tipo: TipoCircuito, t = tam, imovel = cfg.imovel) => String(distanciaPorArea(t?.area ?? 0, tipo, imovel, t?.lado));
   // mudou o tamanho do imóvel: refaz as distâncias que ainda estão automáticas
   const setC = (k: keyof typeof cfg, v: string) => {
     setCfg((p) => ({ ...p, [k]: v }));
+    if (k === "conc") try { localStorage.setItem("calc-concessionaria", v); } catch { /* sem storage */ }
     if (k === "area" || k === "imovel") { const t = k === "area" ? parseTamanho(v) : tam, imovel = (k === "imovel" ? v : cfg.imovel) as TipoImovel;
       if (t) setLinhas((p) => p.map((l) => (l.auto ? { ...l, comprimento: dist(l.tipo, t, imovel) } : l))); }
   };
@@ -39,14 +44,14 @@ export function Multipla() {
     setLinhas(novas);
     // escolhe o padrão de entrada pela demanda (até 63 A por fase)
     const cs: Carga[] = novas.map((l) => ({ nome: l.nome, potenciaW: num(l.potencia), quantidade: num(l.quantidade), comprimentoM: num(l.comprimento), tipo: l.tipo, areaMolhada: l.molhada, fp: l.fp, sistema: l.sistema, tensao: l.tensao }));
-    const entrada = (["mono", "bi", "tri"] as const).find((e) => projetoCompleto(cs, { ...conf, entrada: e }).correnteDemanda <= 63) ?? "tri";
+    const entrada = (["mono", "bi", "tri"] as const).find((e) => { const r = projetoCompleto(cs, { ...conf, entrada: e }); return r.categoria && !r.avisos.some((a) => a.includes("entrada precisa")); }) ?? "tri";
     setCfg((p) => ({ ...p, entrada }));
     setTimeout(() => document.getElementById("cargas")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
   const upd = (id: number, f: Partial<Linha>) => setLinhas((p) => p.map((l) => (l.id === id ? { ...l, ...f } : l)));
   const grupos = [...new Set(PRESETS.map((p) => p.grupo))];
 
-  const conf: ConfigObra = { entrada: cfg.entrada, metodo: cfg.metodo, temperatura: num(cfg.temperatura), quedaMax: num(cfg.quedaMax) || 4, agrupados: num(cfg.agrupados) || 1, distanciaEntradaM: num(cfg.distanciaEntradaM) || 1 };
+  const conf: ConfigObra = { entrada: cfg.entrada, metodo: cfg.metodo, temperatura: num(cfg.temperatura), quedaMax: num(cfg.quedaMax) || 4, agrupados: num(cfg.agrupados) || 1, distanciaEntradaM: num(cfg.distanciaEntradaM) || 1, concessionaria: cfg.conc };
   const cargas: Carga[] = linhas.map((l) => ({ nome: l.nome, potenciaW: num(l.potencia), quantidade: num(l.quantidade), comprimentoM: num(l.comprimento), tipo: l.tipo, areaMolhada: l.molhada, fp: l.fp, sistema: l.sistema, tensao: l.tensao }));
   const pj = useMemo(() => (cargas.some((c) => c.potenciaW > 0 && c.quantidade > 0) ? projetoCompleto(cargas, conf) : null), [JSON.stringify(cargas), JSON.stringify(conf)]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -62,6 +67,8 @@ export function Multipla() {
       <div className="space-y-4">
         <section className="card space-y-3">
           <p className="text-lg font-bold text-navy">1. Dados da instalação</p>
+          <div><label className={L} htmlFor="conc">Concessionária</label><select id="conc" className={I} value={cfg.conc} onChange={(e) => setC("conc", e.target.value)}>{CONCESSIONARIAS.map((c) => <option key={c.id} value={c.id}>{c.uf ? `${c.uf} – ` : ""}{c.nome}</option>)}</select>
+            <p className="mt-1 text-xs text-muted">Sistema <b className="text-ink">{conc.sistema} V</b> · norma: {conc.site ? <a href={conc.site} target="_blank" rel="noopener" className="font-bold underline">{conc.norma}</a> : conc.norma}{conc.sistema === "220/127" ? " · tomadas e iluminação em 127 V; chuveiro e aparelhos de 220 V entre fases" : ""}</p></div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className={L} htmlFor="area">Tamanho do imóvel</label><input id="area" className={I} placeholder="ex.: 10x20 ou 200" value={cfg.area} onChange={(e) => setC("area", e.target.value)} /></div>
             <div><label className={L} htmlFor="imv">Tipo de imóvel</label><select id="imv" className={I} value={cfg.imovel} onChange={(e) => setC("imovel", e.target.value)}>{Object.entries(IMOVEIS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
@@ -78,7 +85,7 @@ export function Multipla() {
             <p className="-mt-1 text-xs text-muted">Monta {quartos} quarto(s), {banheiros} banheiro(s){comAr ? ", ar nos quartos" : ""}, cozinha, área de serviço, tomadas e iluminação (critérios da NBR 5410). Depois é só ajustar o que for diferente.</p>
           </>)}
           <div className="grid gap-3 sm:grid-cols-2">
-            <div><label className={L} htmlFor="ent">Padrão de entrada</label><select id="ent" className={I} value={cfg.entrada} onChange={(e) => setC("entrada", e.target.value)}>{Object.entries(ENTRADAS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+            <div><label className={L} htmlFor="ent">Padrão de entrada</label><select id="ent" className={I} value={cfg.entrada} onChange={(e) => setC("entrada", e.target.value)}>{([["mono", 1], ["bi", 2], ["tri", 3]] as const).map(([k, f]) => <option key={k} value={k}>{nomeLigacao(f, conc.sistema)}</option>)}</select></div>
             <div><label className={L} htmlFor="dme">Distância medidor → quadro (m)</label><input id="dme" className={I} inputMode="decimal" value={cfg.distanciaEntradaM} onChange={(e) => setC("distanciaEntradaM", e.target.value)} /></div>
           </div>
           <div><label className={L} htmlFor="mm">Forma de instalação</label><select id="mm" className={I} value={cfg.metodo} onChange={(e) => setC("metodo", e.target.value)}>{Object.entries(METODOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
@@ -124,6 +131,7 @@ export function Multipla() {
         {!pj ? <div className="card text-muted">Adicione pelo menos uma carga para ver o cálculo.</div> : (<>
           <div className="rounded-2xl bg-navy p-5 text-white">
             <p className="text-xs font-bold uppercase text-navy-soft">Resumo da obra · {pj.circuitos.length} circuito(s)</p>
+            <p className="mt-1 text-sm text-navy-soft">{pj.concessionaria}: <b className="text-white">{pj.categoria ?? "fora das categorias em baixa tensão"}</b></p>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <Box k="Disjuntor geral" v={pj.geral.disjuntor ? `${pj.geral.disjuntor} A` : "—"} s={pj.polosGeral === 2 ? "bipolar" : "tripolar"} />
               <Box k="Cabo de entrada" v={pj.geral.secao ? `${fmt(pj.geral.secao)} mm²` : "—"} s={`terra ${fmt(pj.geral.terra)} mm²`} />

@@ -102,3 +102,26 @@ test("tamanho digitado: área ou medidas, e a casa montada por ele", async () =>
   assert.ok(comodosPorArea(200).quartos > comodosPorArea(60).quartos);
   assert.ok(!montarPorArea({ area: 100, quartos: 3, banheiros: 2, imovel: "terrea", ar: false }).some((x) => x.nome.startsWith("Split")));
 });
+
+test("concessionária: categoria de entrada e tensão do sistema", async () => {
+  const { projetoCompleto } = await import("../src/lib/eletrica/dimensionamento");
+  const { categoriaPara, CONCESSIONARIAS } = await import("../src/lib/eletrica/concessionarias");
+  assert.equal(categoriaPara(1, 38)!.disjuntor, 40);
+  assert.equal(categoriaPara(1, 64), null, "monofásico acima de 63 A não existe: sobe para bi/tri");
+  assert.equal(categoriaPara(3, 70)!.disjuntor, 80);
+  assert.ok(CONCESSIONARIAS.some((c) => c.id === "energisa-pb" && c.sistema === "380/220"));
+  assert.ok(CONCESSIONARIAS.some((c) => c.id === "neoenergia-pe" && c.sistema === "380/220"));
+  const casa = [{ nome: "Chuveiro", potenciaW: 7500, quantidade: 1, comprimentoM: 12, tipo: "dedicado" as const, areaMolhada: true, fp: 1, sistema: "mono" as const, tensao: 220 },
+    { nome: "Tomadas", potenciaW: 1200, quantidade: 2, comprimentoM: 15, tipo: "tomadas" as const, areaMolhada: false, fp: 1, sistema: "mono" as const, tensao: 220 }];
+  const cfg = { entrada: "mono" as const, metodo: "B1" as const, temperatura: 30, quedaMax: 4, agrupados: 1, distanciaEntradaM: 10 };
+  const pb = projetoCompleto(casa, { ...cfg, concessionaria: "energisa-pb" });
+  assert.match(pb.categoria!, /Monofásico 220 V/); assert.equal(pb.geral.disjuntor, Number(pb.categoria!.match(/(\d+) A$/)![1]));
+  assert.match(pb.avisos.join(" "), /NDU 001/);
+  const pe = projetoCompleto(casa, { ...cfg, concessionaria: "neoenergia-pe" });
+  assert.match(pe.avisos.join(" "), /DIS-NOR-030/);
+  // sistema 220/127: chuveiro de 220 V vai entre fases (bipolar) e pede entrada bifásica
+  const sp = projetoCompleto(casa, { ...cfg, entrada: "bi", concessionaria: "enel-sp" });
+  const ch = sp.circuitos.find((c) => c.carga.nome === "Chuveiro")!, tm = sp.circuitos.find((c) => c.carga.nome === "Tomadas")!;
+  assert.equal(ch.polos, 2); assert.equal(tm.carga.tensao, 127);
+  assert.match(projetoCompleto(casa, { ...cfg, concessionaria: "enel-sp" }).avisos.join(" "), /entrada precisa ser bifásica/);
+});

@@ -1,6 +1,7 @@
 // Dimensionamento de circuitos de baixa tensão — referência ABNT NBR 5410.
 // Condutores de COBRE com isolação de PVC (70 °C). Valores de referência:
 // conferir sempre na norma e nas condições reais da instalação.
+import { concessionaria, categoriaPara, nomeLigacao, tensaoFN, CONCESSIONARIA_PADRAO } from "./concessionarias";
 
 export type Metodo = "B1" | "B2" | "C" | "D";
 export type Sistema = "mono" | "bi" | "tri"; // mono = F+N; bi = 2F (ou F+F+N com carga entre fases); tri = 3F
@@ -370,14 +371,14 @@ export const PRESETS: Preset[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 export type Entrada3 = "mono" | "bi" | "tri"; // padrão de entrada: F+N 220 V | 2F+N 380/220 V | 3F+N 380/220 V
 export type Carga = { nome: string; potenciaW: number; quantidade: number; comprimentoM: number; tipo: TipoCircuito; areaMolhada: boolean; fp: number; sistema: Sistema; tensao: number };
-export type ConfigObra = { entrada: Entrada3; metodo: Metodo; temperatura: number; quedaMax: number; agrupados: number; distanciaEntradaM: number };
+export type ConfigObra = { entrada: Entrada3; metodo: Metodo; temperatura: number; quedaMax: number; agrupados: number; distanciaEntradaM: number; concessionaria?: string };
 export type CircuitoCalc = { n: number; carga: Carga; r: Resultado; polos: 1 | 2 | 3 };
 export type ItemMaterial = { chave: string; nome: string; catalogo: string | null; unidade: string; qtd: number; uso: string; detalhe?: string };
 export type Projeto = {
   circuitos: CircuitoCalc[]; potenciaInstalada: number; demandaIlumTug: number; demandaTue: number; demanda: number;
   fatorIlumTug: number; fatorTue: number; correnteDemanda: number; geral: Resultado; polosGeral: 2 | 3;
   dr: { polos: 2 | 4; corrente: number; motivo: string }; dps: number; modulos: number; reserva: number; quadro: number;
-  materiais: ItemMaterial[]; avisos: string[];
+  materiais: ItemMaterial[]; avisos: string[]; categoria: string | null; concessionaria: string;
 };
 
 /** Distância média de fio (quadro → pontos) estimada pelo tamanho do imóvel.
@@ -403,7 +404,7 @@ export function parseTamanho(txt: string): { area: number; lado?: number; frente
 /** Programa da casa estimado pela área (o eletricista ajusta). */
 export function comodosPorArea(area: number) {
   const quartos = area < 45 ? 1 : area < 75 ? 2 : area < 130 ? 3 : area < 260 ? 4 : 5;
-  const banheiros = area < 70 ? 1 : area < 120 ? 2 : area < 220 ? 3 : 4;
+  const banheiros = area < 70 ? 1 : area <= 130 ? 2 : area < 220 ? 3 : 4;
   return { quartos, banheiros };
 }
 
@@ -439,7 +440,6 @@ function fatorTue(n: number) {
   const t = [1, 1, 1, 0.84, 0.76, 0.7, 0.65, 0.6, 0.57, 0.54, 0.52, 0.49, 0.48, 0.46, 0.45, 0.44, 0.43];
   return n <= 16 ? t[Math.max(0, n)] : n <= 20 ? 0.4 : n <= 25 ? 0.39 : 0.38;
 }
-const TENSAO_FN = 220;
 const QUADROS = [6, 8, 12, 18, 24, 36, 48];
 const bitola = (s: number) => String(s).replace(".", ",");
 export const ENTRADAS: Record<Entrada3, string> = { mono: "Monofásico 220 V (F + N)", bi: "Bifásico 380/220 V (2F + N)", tri: "Trifásico 380/220 V (3F + N)" };
@@ -457,8 +457,19 @@ const ordem = (k: string) => {
 };
 const nomeCabo = (s: number) => (s <= 35 ? `Cabo flexível ${bitola(s)} mm² 750 V` : null);
 
-export function projetoCompleto(cargas: Carga[], cfg: ConfigObra): Projeto {
+/** Ajusta a tensão da carga ao sistema da concessionária:
+ *  380/220 V → tudo em 220 V (F+N); 220/127 V → tomadas/iluminação em 127 V e aparelhos de 220 V entre fases (F+F). */
+export function ajustarTensao(c: Carga, sistema: "380/220" | "220/127"): Carga {
+  if (sistema === "380/220") return c.sistema === "mono" && c.tensao !== 220 ? { ...c, tensao: 220 } : c.sistema === "tri" ? { ...c, tensao: 380 } : c;
+  if (c.sistema === "tri") return { ...c, tensao: 220 };
+  if (c.sistema === "mono") return c.tensao === 127 || c.tipo === "tomadas" || c.tipo === "iluminacao" ? { ...c, tensao: 127 } : { ...c, sistema: "bi", tensao: 220 };
+  return c;
+}
+
+export function projetoCompleto(cargasIn: Carga[], cfg: ConfigObra): Projeto {
   const avisos: string[] = [];
+  const conc = concessionaria(cfg.concessionaria ?? CONCESSIONARIA_PADRAO), TENSAO_FN = tensaoFN(conc.sistema);
+  const cargas = cargasIn.map((c) => ajustarTensao(c, conc.sistema));
   const circuitos: CircuitoCalc[] = [];
   let n = 0;
   for (const c of cargas) {
@@ -479,13 +490,16 @@ export function projetoCompleto(cargas: Carga[], cfg: ConfigObra): Projeto {
   const demanda = ilumTug * fIT + tueVa * fT;
   const fases = cfg.entrada === "tri" ? 3 : cfg.entrada === "bi" ? 2 : 1;
   const correnteDemanda = demanda / (fases * TENSAO_FN);
+  const cat = categoriaPara(fases as 1 | 2 | 3, correnteDemanda);
   const polosGeral: 2 | 3 = fases === 3 ? 3 : 2; // geral bipolar na entrada mono (corta fase e neutro) e bifásica
 
   // Disjuntor geral e cabo de entrada (alimentador medidor → quadro)
-  const geral = dimensionar({ potenciaW: correnteDemanda * TENSAO_FN, tensao: TENSAO_FN, sistema: "mono", fp: 1, comprimentoM: Math.max(1, cfg.distanciaEntradaM), metodo: cfg.metodo, temperatura: cfg.temperatura, circuitosAgrupados: 1, quedaMax: Math.min(cfg.quedaMax, 3), tipo: "dedicado", areaMolhada: false });
-  if (fases === 1 && correnteDemanda > 63) avisos.push("Demanda alta para entrada monofásica: avalie bifásica ou trifásica (consulte a concessionária).");
-  if (fases === 2 && correnteDemanda > 63) avisos.push("Demanda alta para entrada bifásica: avalie trifásica (consulte a concessionária).");
-  avisos.push("O disjuntor geral final segue a categoria de atendimento da concessionária (ex.: Energisa) — confira a tabela dela.");
+  // disjuntor geral = categoria da concessionária; o cabo de entrada é dimensionado para esse disjuntor
+  const geral = dimensionar({ potenciaW: (cat ? cat.disjuntor : correnteDemanda) * TENSAO_FN, tensao: TENSAO_FN, sistema: "mono", fp: 1, comprimentoM: Math.max(1, cfg.distanciaEntradaM), metodo: cfg.metodo, temperatura: cfg.temperatura, circuitosAgrupados: 1, quedaMax: Math.min(cfg.quedaMax, 3), tipo: "dedicado", areaMolhada: false });
+  if (fases === 1 && !cat) avisos.push("Demanda alta para entrada monofásica: passe para bifásica ou trifásica.");
+  if (fases === 2 && !cat) avisos.push("Demanda alta para entrada bifásica: passe para trifásica.");
+  if (fases === 3 && !cat) avisos.push("Demanda acima de 125 A por fase: atendimento especial ou em média tensão — consulte a concessionária.");
+  avisos.push(`${conc.nome}: confira na ${conc.norma} a categoria, o limite de carga instalada e o padrão de entrada (caixa, poste e aterramento).`);
 
   // DR, DPS e quadro
   const molhada = circuitos.some((c) => c.carga.areaMolhada);
@@ -548,6 +562,7 @@ export function projetoCompleto(cargas: Carga[], cfg: ConfigObra): Projeto {
     demandaIlumTug: Math.round(ilumTug * fIT), demandaTue: Math.round(tueVa * fT), demanda: Math.round(demanda), fatorIlumTug: fIT, fatorTue: fT,
     correnteDemanda: Math.round(correnteDemanda * 10) / 10, geral, polosGeral,
     dr: { polos: drPolos, corrente: drCorrente, motivo: molhada ? "obrigatório: há área molhada" : "recomendado" },
+    categoria: cat ? `${nomeLigacao(cat.fases, conc.sistema)} – disjuntor ${cat.disjuntor} A` : null, concessionaria: conc.nome,
     dps, modulos, reserva, quadro, materiais: [...mat.values()].sort((a, b) => ordem(a.chave) - ordem(b.chave)), avisos,
   };
 }
