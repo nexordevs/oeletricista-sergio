@@ -100,3 +100,67 @@ export function streak(doneDays: Set<string>, today: Date): number {
 }
 
 export const KIND_LABEL: Record<NewTask["kind"], string> = { TEORIA: "Teoria", QUESTOES: "Questões", REVISAO: "Revisão", SIMULADO: "Simulado" };
+
+// ── Vídeo do tema ─────────────────────────────────────────────────────
+/** Link do vídeo escolhido ou uma busca no YouTube pelo tema (aula para concurso). */
+export function videoLink(topic: string | null | undefined, subject: string | null | undefined, custom?: string | null): string {
+  if (custom) return custom;
+  const q = [topic, subject && !topic?.toLowerCase().includes(subject.toLowerCase()) ? subject : null, "aula concurso PM"].filter(Boolean).join(" ");
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+}
+/** Aceita só links do YouTube (youtube.com / youtu.be), normalizados. */
+export function cleanYoutube(url: string): string | null {
+  try {
+    const u = new URL(url.trim());
+    if (!/^(www\.|m\.)?(youtube\.com|youtu\.be)$/.test(u.hostname) || u.protocol !== "https:") return null;
+    return u.toString();
+  } catch { return null; }
+}
+
+// ── Importar o conteúdo programático colado do edital ─────────────────
+const norm = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+/** Apelidos → nome da matéria no sistema (ordem importa: o mais específico primeiro). */
+const ALIASES: [RegExp, string][] = [
+  [/direito penal militar|codigo penal militar|legislacao militar/, "Direito Penal Militar"],
+  [/processual penal|processo penal/, "Direito Processual Penal"],
+  [/direito penal/, "Direito Penal"],
+  [/direito constitucional/, "Direito Constitucional"],
+  [/direito administrativo/, "Direito Administrativo"],
+  [/direitos humanos/, "Direitos Humanos"],
+  [/legislacao extravagante|legislacao especial/, "Legislação Extravagante"],
+  [/sociologia/, "Sociologia"],
+  [/lingua portuguesa|portugues/, "Língua Portuguesa"],
+  [/raciocinio logico|matematica/, "Raciocínio Lógico"],
+  [/historia|geografia/, "Geografia e História da Paraíba"],
+  [/lingua estrangeira|lingua inglesa|lingua espanhola|ingles|espanhol/, "Língua Estrangeira (Inglês/Espanhol)"],
+  [/informatica/, "Noções de Informática"],
+];
+
+/**
+ * Lê o texto do Anexo IV (conteúdo programático) e devolve { matéria: [temas] }.
+ * Título de matéria = linha curta que bate com um apelido (pode terminar com ":"); temas separados por ";", numeração ("1.", "1.1") ou linha.
+ */
+export function parseEdital(text: string): { subject: string; topics: string[] }[] {
+  const out = new Map<string, string[]>();
+  let cur: string | null = null;
+  for (const raw of text.replace(/\r/g, "").split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    const colon = line.indexOf(":");
+    const head = (colon > 0 ? line.slice(0, colon) : line).replace(/[.\-–]+\s*$/, "").trim();
+    const alias = head.length <= 70 ? ALIASES.find(([re]) => re.test(norm(head))) : undefined;
+    let body = line;
+    if (alias && (head.length <= 45 || colon > 0)) {
+      cur = alias[1];
+      const after = line.split(":").slice(1).join(":").trim(); // "LÍNGUA PORTUGUESA: tema; tema"
+      if (!after) continue;
+      body = after;
+    }
+    if (!cur) continue;
+    const parts = body.split(/;|(?:^|\s)(?=\d{1,2}(?:\.\d{1,2})*[.)-]\s)/).map((x) => x.replace(/^\s*(?:\d{1,2}(?:\.\d{1,2})*[.)-]|[-•*])\s*/, "").replace(/[.;]\s*$/, "").trim()).filter((x) => x.length >= 3);
+    const list = out.get(cur) ?? [];
+    for (const p of parts) if (!list.includes(p)) list.push(p.slice(0, 160));
+    out.set(cur, list);
+  }
+  return [...out.entries()].map(([subject, topics]) => ({ subject, topics })).filter((x) => x.topics.length);
+}

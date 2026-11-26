@@ -229,6 +229,8 @@ async function makeQuote(p, client, beforeClick) {
   sql(`delete from "StudyTask" where "userId"='${admId}'; delete from "StudySubject" where "userId"='${admId}'; delete from "StudyPlan" where "userId"='${admId}'`);
   await adm.goto(B + '/admin/mentoria');
   ok(Number(sql(`select count(*) from "StudySubject" where "userId"='${admId}'`)) >= 10 && await adm.isVisible('text=PMPB'), 'mentoria cria o plano PMPB com as matérias do edital');
+  ok(Number(sql(`select count(*) from "StudyTask" where "userId"='${admId}' and kind='TEORIA' and "topicId" is not null`)) >= 12, 'cronograma se monta sozinho com o assunto de cada matéria');
+  ok((await adm.getAttribute('a:has-text("Aula no YouTube") >> nth=0', 'href') || '').startsWith('https://www.youtube.com/results?search_query='), 'tarefa do dia tem link de aula no YouTube');
   await adm.click('button:has-text("Gerar 7 dias")'); await adm.waitForTimeout(3000);
   const gerou = Number(sql(`select count(*) from "StudyTask" where "userId"='${admId}' and kind='TEORIA'`));
   ok(gerou >= 12, `gera o cronograma dos próximos 7 dias (${gerou} blocos de teoria)`);
@@ -255,7 +257,7 @@ async function makeQuote(p, client, beforeClick) {
   ok(await adm.isVisible('text=14h30 por semana'), 'mostra o total de horas da semana enquanto digita');
   await adm.click('button:has-text("Salvar plano")'); await adm.waitForTimeout(2500);
   ok(sql(`select "dayMinutes" from "StudyPlan" where "userId"='${admId}'`) === '0,120,90,180,120,120,240', 'salva as horas de estudo de cada dia da semana');
-  const dcs = adm.locator('details:has(summary:has-text("Direito Constitucional"))').first(); await dcs.locator('summary').click();
+  const dcs = adm.locator('details:has(summary:has-text("Direito Constitucional"))').first(); await dcs.locator('summary').first().click();
   await dcs.locator('textarea[name=name]').fill('1. Nacionalidade – Art. 12 e 13\n- Direitos Políticos – Art. 14 ao 16'); await dcs.locator('button:has-text("Adicionar temas")').click(); await adm.waitForTimeout(2000);
   ok(sql(`select count(*) from "StudyTopic" t join "StudySubject" s on s.id=t."subjectId" where s."userId"='${admId}' and t.name in ('Nacionalidade – Art. 12 e 13','Direitos Políticos – Art. 14 ao 16')`) === '2', 'cola vários temas de uma vez (um por linha, sem os marcadores)');
   adm.once('dialog', (d) => d.accept()); await adm.click('button:has-text("Refazer cronograma")'); await adm.waitForTimeout(3500);
@@ -274,6 +276,10 @@ async function makeQuote(p, client, beforeClick) {
   await adm.selectOption('#subjectId', { label: 'Sociologia' }); await adm.fill('#questions', '5'); await adm.fill('#correct', '7'); await adm.click('button:has-text("Lançar questões")'); await adm.waitForTimeout(2000);
   ok(sql(`select count(*) from "StudyQuestionLog" where "userId"='${admId}'`) === '1' && await adm.isVisible('text=Acertos não podem passar'), 'não aceita mais acertos do que questões');
   await adm.goto(B + '/admin/mentoria'); ok(await adm.isVisible('text=Questões na semana') && !(await adm.locator('div.card:has(p:text-is("Questões na semana")) p.text-xl').innerText()).startsWith('0 '), 'questões lançadas entram nas metas da semana do painel');
+  await adm.goto(B + '/admin/mentoria'); await adm.locator('summary:has-text("Importar conteúdo do edital")').click();
+  await adm.fill('#text', 'LÍNGUA PORTUGUESA: 1. Compreensão de textos. 2. Coesão e coerência; Crase.\nNOÇÕES DE DIREITO ADMINISTRATIVO:\n1. Princípios.\n2. Poderes administrativos.');
+  await adm.click('button:has-text("Importar e refazer")'); await adm.waitForTimeout(3500);
+  ok(sql(`select string_agg(t.name, '|' order by t."sortOrder") from "StudyTopic" t join "StudySubject" s on s.id=t."subjectId" where s."userId"='${admId}' and s.name='Língua Portuguesa'`).startsWith('Compreensão de textos|Coesão e coerência|Crase|') && sql(`select count(*) from "StudySubject" where "userId"='${admId}' and name='Direito Administrativo'`) === '1', 'colar o conteúdo do edital troca os temas e cria a matéria que faltava');
   await adm.goto(B + '/admin/mentoria/semana'); ok(await adm.isVisible('text=Esta semana') && await adm.isVisible('text=questões lançadas'), 'visão da semana em colunas mostra tarefas e questões do dia');
   const pA = await (await b.newContext()).newPage(); await pA.goto(B + '/entrar'); await pA.fill('#email', `a${t}@teste.local`); await pA.fill('#password', 'Senha12345'); await pA.click('button[type=submit]'); await pA.waitForURL(/painel/);
   await pA.goto(B + '/admin/mentoria'); ok(!pA.url().includes('/admin/mentoria'), 'eletricista comum não acessa a mentoria (vai para o início)');

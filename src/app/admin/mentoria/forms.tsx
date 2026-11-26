@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useStickyAction, StickyForm } from "@/components/form-kit";
 import { Submit, FormMessage, Field } from "@/components/ui";
-import { savePlan, completeTask, addTask, saveSubject, addTopic, rescheduleTask, addQuestionLog } from "./actions";
+import { savePlan, completeTask, addTask, saveSubject, addTopic, rescheduleTask, addQuestionLog, importEdital } from "./actions";
 
 const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -171,6 +171,24 @@ export function QuestionLogForm({ subjects, today }: { subjects: { id: string; n
         <div><label className="label" htmlFor="note">Obs. (opcional)</label><input id="note" name="note" className="input" placeholder="errei crase" /></div>
       </div>
       <Submit className="btn-primary w-full">Lançar questões</Submit>
+    </StickyForm>
+  );
+}
+
+/** Colar o conteúdo programático do edital (Anexo IV). */
+export function EditalImportForm() {
+  const [s, a, pending] = useStickyAction(importEdital);
+  return (
+    <StickyForm pending={pending} onSubmit={a} className="space-y-3" noValidate>
+      <FormMessage state={s} />
+      <Field label="Conteúdo programático do edital" name="text" state={s}>
+        <textarea id="text" name="text" rows={8} className="input text-sm" placeholder={"Cole aqui o Anexo IV do edital. Ex.:\nLÍNGUA PORTUGUESA: 1. Compreensão de textos. 2. Tipologia textual; Coesão e coerência…\nRACIOCÍNIO LÓGICO: Proposições; Conectivos…\nNOÇÕES DE DIREITO CONSTITUCIONAL: …"} />
+      </Field>
+      <div className="flex flex-wrap gap-3 text-sm">
+        <label className="flex items-center gap-2"><input type="radio" name="mode" value="substituir" defaultChecked className="accent-navy" /> Substituir os temas das matérias coladas <span className="text-muted">(temas já estudados ficam)</span></label>
+        <label className="flex items-center gap-2"><input type="radio" name="mode" value="adicionar" className="accent-navy" /> Só adicionar</label>
+      </div>
+      <Submit className="btn-navy w-full">Importar e refazer cronograma</Submit>
     </StickyForm>
   );
 }

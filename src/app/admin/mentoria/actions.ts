@@ -5,8 +5,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { parseForm, zText, type ActionState } from "@/lib/form";
-import { ensureSetup } from "@/lib/mentoria-server";
-import { planDays, reviewTasks, todayBR, addDays, dayKey, fromKey, parseList, minutesByDay, parseHours, type SubjectState } from "@/lib/mentoria";
+import { ensureSetup, buildSchedule } from "@/lib/mentoria-server";
+import { reviewTasks, todayBR, addDays, fromKey, parseList, parseHours, parseEdital, cleanYoutube } from "@/lib/mentoria";
 
 const refresh = () => revalidatePath("/admin/mentoria");
 
@@ -49,23 +49,6 @@ export async function rebuildSchedule() {
   refresh();
 }
 
-async function buildSchedule(userId: string, days: number) {
-  const u = { id: userId };
-  const plan = await ensureSetup(u.id);
-  const from = todayBR();
-  const [subjects, counts, existing] = await Promise.all([
-    prisma.studySubject.findMany({ where: { userId: u.id }, orderBy: { sortOrder: "asc" }, include: { topics: { orderBy: { sortOrder: "asc" } } } }),
-    prisma.studyTask.groupBy({ by: ["subjectId"], where: { userId: u.id, kind: { in: ["TEORIA", "QUESTOES"] } }, _count: true }),
-    prisma.studyTask.findMany({ where: { userId: u.id, date: { gte: from, lt: addDays(from, days) } }, select: { date: true, kind: true } }),
-  ]);
-  const pendingTopics = new Set((await prisma.studyTask.findMany({ where: { userId: u.id, kind: "TEORIA", status: "PENDENTE", topicId: { not: null } }, select: { topicId: true } })).map((t) => t.topicId));
-  const state: SubjectState[] = subjects.map((s) => ({ id: s.id, name: s.name, weight: s.weight, scheduled: counts.find((c) => c.subjectId === s.id)?._count ?? 0,
-    topics: s.topics.map((t) => ({ id: t.id, name: t.name, studied: Boolean(t.studiedAt), pending: pendingTopics.has(t.id) })) }));
-  const busy = new Set(existing.filter((e) => e.kind === "TEORIA" || e.kind === "QUESTOES").map((e) => dayKey(e.date)));
-  const sims = new Set(existing.filter((e) => e.kind === "SIMULADO").map((e) => dayKey(e.date)));
-  const tasks = planDays({ dayMinutes: minutesByDay(plan), blockMinutes: plan.blockMinutes, reviewDays: parseList(plan.reviewDays), simuladoEvery: plan.simuladoEvery, startDate: plan.startDate, examDate: plan.examDate }, state, from, days, busy, sims);
-  if (tasks.length) await prisma.studyTask.createMany({ data: tasks.map((t) => ({ ...t, userId: u.id, auto: true })) });
-}
 
 /** Marca como feito (com questões/acertos opcionais). Teoria concluída agenda as revisões. */
 export async function completeTask(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -217,4 +200,47 @@ export async function deleteQuestionLog(fd: FormData) {
   const u = await requireAdmin();
   await prisma.studyQuestionLog.deleteMany({ where: { id: String(fd.get("id")), userId: u.id } });
   revalidatePath("/admin/mentoria"); revalidatePath("/admin/mentoria/questoes");
+}
+
+// ── Vídeo do tema e importação do edital ──────────────────────────────
+export async function setTopicVideo(fd: FormData) {
+  const u = await requireAdmin();
+  const t = await prisma.studyTopic.findFirst({ where: { id: String(fd.get("id")), subject: { userId: u.id } } });
+  if (!t) return;
+  const raw = String(fd.get("url") ?? "").trim();
+  await prisma.studyTopic.update({ where: { id: t.id }, data: { videoUrl: raw ? cleanYoutube(raw) : null } });
+  refresh();
+}
+
+/** Cola o Anexo IV (conteúdo programático): cria/atualiza os temas de cada matéria e refaz o cronograma. */
+export async function importEdital(_: ActionState, fd: FormData): Promise<ActionState> {
+  const u = await requireAdmin();
+  await ensureSetup(u.id);
+  const text = String(fd.get("text") ?? "");
+  if (text.trim().length < 10) return { error: "Cole o conteúdo programático do edital.", fields: { text: "Cole o texto do edital" } };
+  if (text.length > 60000) return { error: "Texto muito grande. Cole uma matéria de cada vez." };
+  const parsed = parseEdital(text);
+  if (!parsed.length) return { error: "Não encontrei os nomes das matérias no texto. Deixe o nome de cada matéria em uma linha (ex.: LÍNGUA PORTUGUESA:) antes dos temas." };
+  const replace = fd.get("mode") === "substituir";
+  const subjects = await prisma.studySubject.findMany({ where: { userId: u.id }, include: { topics: true } });
+  const resumo: string[] = [];
+  for (const p of parsed) {
+    let s = subjects.find((x) => x.name.toLowerCase() === p.subject.toLowerCase());
+    if (!s) s = { ...(await prisma.studySubject.create({ data: { userId: u.id, name: p.subject, weight: 3, sortOrder: 50 } })), topics: [] };
+    if (replace) await prisma.studyTopic.deleteMany({ where: { subjectId: s.id, studiedAt: null } }); // temas já estudados ficam
+    const keep = new Set((replace ? s.topics.filter((t) => t.studiedAt) : s.topics).map((t) => t.name.toLowerCase()));
+    const novos = p.topics.filter((t) => !keep.has(t.toLowerCase()));
+    const base = replace ? 0 : s.topics.length; // adicionar: entra no fim da lista
+    if (novos.length) await prisma.studyTopic.createMany({ data: novos.map((name, i) => ({ subjectId: s!.id, name, sortOrder: base + i })) });
+    if (replace) { // os já estudados que ficaram vão para o fim, depois dos temas do edital
+      const kept = s.topics.filter((t) => t.studiedAt);
+      for (const [i, t] of kept.entries()) await prisma.studyTopic.update({ where: { id: t.id }, data: { sortOrder: 1000 + i } });
+    }
+    resumo.push(`${p.subject}: ${novos.length}`);
+  }
+  // o cronograma passa a usar os temas novos
+  await prisma.studyTask.deleteMany({ where: { userId: u.id, auto: true, status: "PENDENTE", kind: { in: ["TEORIA", "QUESTOES"] }, date: { gte: todayBR() } } });
+  await buildSchedule(u.id, 14);
+  refresh();
+  return { ok: true, message: `Edital importado e cronograma refeito ✓ Temas novos — ${resumo.join(" · ")}` };
 }

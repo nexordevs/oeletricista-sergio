@@ -54,3 +54,25 @@ test("lê as horas digitadas de vários jeitos", () => {
   assert.equal(parseHours("1,5"), 90); assert.equal(parseHours("45min"), 45); assert.equal(parseHours(""), 0); assert.equal(parseHours("3h"), 180);
   assert.deepEqual(minutesByDay({ dayMinutes: null, dailyMinutes: 120, studyDays: "1,3" }), [0, 120, 0, 120, 0, 0, 0]);
 });
+
+import { parseEdital, videoLink, cleanYoutube } from "../src/lib/mentoria";
+test("lê o conteúdo programático colado do edital", () => {
+  const txt = `LÍNGUA PORTUGUESA: 1. Compreensão de textos. 2. Tipologia textual; Coesão e coerência; Figuras de linguagem.
+RACIOCÍNIO LÓGICO
+Proposições e conectivos;
+Tabela-verdade.
+NOÇÕES DE DIREITO PENAL MILITAR:
+- Crime militar (art. 9º do CPM)`;
+  const r = parseEdital(txt);
+  assert.deepEqual(r.find((x) => x.subject === "Língua Portuguesa")?.topics, ["Compreensão de textos", "Tipologia textual", "Coesão e coerência", "Figuras de linguagem"]);
+  assert.deepEqual(r.find((x) => x.subject === "Raciocínio Lógico")?.topics, ["Proposições e conectivos", "Tabela-verdade"]);
+  assert.deepEqual(r.find((x) => x.subject === "Direito Penal Militar")?.topics, ["Crime militar (art. 9º do CPM)"]);
+});
+
+test("link de vídeo: o escolhido ou uma busca no YouTube; só aceita YouTube", () => {
+  assert.ok(videoLink("Crase", "Língua Portuguesa").startsWith("https://www.youtube.com/results?search_query=Crase%20L%C3%ADngua"));
+  assert.equal(videoLink("Crase", "LP", "https://youtu.be/abc"), "https://youtu.be/abc");
+  assert.equal(cleanYoutube("https://www.youtube.com/watch?v=x1"), "https://www.youtube.com/watch?v=x1");
+  assert.equal(cleanYoutube("https://evil.com/youtube.com"), null);
+  assert.equal(cleanYoutube("javascript:alert(1)"), null);
+});

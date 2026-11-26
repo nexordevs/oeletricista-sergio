@@ -2,10 +2,10 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { fmtDate } from "@/lib/money";
 import { ConfirmButton } from "@/components/ConfirmButton";
-import { ensureSetup } from "@/lib/mentoria-server";
-import { todayBR, addDays, dayKey, parseList, streak, minutesByDay, fmtHours, DIAS, KIND_LABEL } from "@/lib/mentoria";
-import { generateSchedule, rebuildSchedule, undoTask, deleteTask, rescheduleLate, toggleTopic, deleteTopic, deleteSubject } from "./actions";
-import { PlanForm, DoneForm, RescheduleForm, AddTaskForm, SubjectForm, TopicForm } from "./forms";
+import { ensureSetup, buildSchedule } from "@/lib/mentoria-server";
+import { todayBR, addDays, dayKey, parseList, streak, minutesByDay, fmtHours, videoLink, DIAS, KIND_LABEL } from "@/lib/mentoria";
+import { generateSchedule, rebuildSchedule, setTopicVideo, undoTask, deleteTask, rescheduleLate, toggleTopic, deleteTopic, deleteSubject } from "./actions";
+import { PlanForm, DoneForm, RescheduleForm, AddTaskForm, SubjectForm, TopicForm, EditalImportForm } from "./forms";
 import { HoursChart, SimuladosChart } from "./Graficos";
 import { MentoriaTabs } from "./Tabs";
 
@@ -18,10 +18,12 @@ export default async function Mentoria() {
   const u = await requireAdmin();
   const plan = await ensureSetup(u.id);
   const today = todayBR(), tk = dayKey(today);
+  // sem nada agendado daqui pra frente: monta o cronograma sozinho (14 dias)
+  if ((await prisma.studyTask.count({ where: { userId: u.id, status: "PENDENTE", date: { gte: today } } })) === 0) await buildSchedule(u.id, 14);
   const weekStart = addDays(today, -((today.getUTCDay() + 6) % 7)); // segunda-feira
   const [tasks, late, doneAll, subjects, simulados] = await Promise.all([
-    prisma.studyTask.findMany({ where: { userId: u.id, date: { gte: today, lt: addDays(today, 8) } }, orderBy: [{ date: "asc" }, { kind: "asc" }, { createdAt: "asc" }], include: { subject: { select: { name: true } } } }),
-    prisma.studyTask.findMany({ where: { userId: u.id, status: "PENDENTE", date: { lt: today } }, orderBy: { date: "asc" }, include: { subject: { select: { name: true } } } }),
+    prisma.studyTask.findMany({ where: { userId: u.id, date: { gte: today, lt: addDays(today, 8) } }, orderBy: [{ date: "asc" }, { kind: "asc" }, { createdAt: "asc" }], include: { subject: { select: { name: true } }, topic: { select: { name: true, videoUrl: true } } } }),
+    prisma.studyTask.findMany({ where: { userId: u.id, status: "PENDENTE", date: { lt: today } }, orderBy: { date: "asc" }, include: { subject: { select: { name: true } }, topic: { select: { name: true, videoUrl: true } } } }),
     prisma.studyTask.findMany({ where: { userId: u.id, status: "FEITO", doneAt: { gte: addDays(today, -120) } }, select: { doneAt: true, minutes: true, questions: true, correct: true, subjectId: true, kind: true } }),
     prisma.studySubject.findMany({ where: { userId: u.id }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], include: { topics: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }] } } }),
     prisma.studyTask.findMany({ where: { userId: u.id, kind: "SIMULADO", status: "FEITO", questions: { gt: 0 } }, orderBy: { date: "asc" }, take: 20 }),
@@ -46,7 +48,7 @@ export default async function Mentoria() {
   const seq = streak(activeDays, today);
   const sunday = addDays(today, -today.getUTCDay());
   const weekDots = Array.from({ length: 7 }, (_, i) => { const d = addDays(sunday, i), k = dayKey(d);
-    return { l: "DSTQQSS"[i], state: activeDays.has(k) ? "ok" : k === dayKey(today) ? "hoje" : d > today ? "futuro" : studyDays.includes(i) ? "faltou" : "descanso" }; });
+    return { l: "DSTQQSS"[i], state: activeDays.has(k) ? "ok" : k === dayKey(today) ? "hoje" : d > today ? "futuro" : k < dayKey(plan.startDate ?? today) ? "descanso" : studyDays.includes(i) ? "faltou" : "descanso" }; });
   const todayTasks = tasks.filter((t) => dayKey(t.date) === tk);
   const todayDone = todayTasks.filter((t) => t.status === "FEITO").length;
   const todayMin = minutesOn(tk);
@@ -77,6 +79,7 @@ export default async function Mentoria() {
           <span className="ml-2 text-xs text-muted">{t.minutes} min{showDate ? ` · ${fmtDate(t.date)}` : ""}{t.rescheduledCount > 0 ? ` · reprogramada ${t.rescheduledCount}x` : ""}</span>
           {t.subject && <p className="mt-1 text-xs font-bold uppercase tracking-wide text-muted">{t.subject.name}</p>}
           <p className={`font-bold text-navy ${t.subject ? "" : "mt-1"} ${t.status === "FEITO" ? "line-through" : ""}`}>{t.subject ? t.title.replace(/^[^:]+: /, "") : t.title}</p>
+          {t.status !== "FEITO" && t.kind !== "SIMULADO" && <a href={videoLink(t.topic?.name ?? t.title.replace(/^[^:]+: /, ""), t.subject?.name, t.topic?.videoUrl)} target="_blank" rel="noopener" className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-red-700 hover:underline">▶ {t.topic?.videoUrl ? "Assistir a aula escolhida" : "Aula no YouTube"}</a>}
           {t.status === "FEITO" && t.questions != null && <p className="text-xs text-muted">{t.correct ?? 0} de {t.questions} questões ({t.questions ? Math.round(((t.correct ?? 0) / t.questions) * 100) : 0}%)</p>}
         </div>
         {t.status === "FEITO"
@@ -142,7 +145,7 @@ export default async function Mentoria() {
               {todayTasks.length > 0 && <span className="badge bg-light text-navy">{todayDone}/{todayTasks.length} feitas</span>}
             </div>
             {todayTasks.length === 0 ? (
-              <div className="px-5 pb-5 text-sm text-muted">{studyDays.includes(today.getUTCDay()) ? "Nada agendado para hoje." : "Hoje é dia de descanso no seu plano. 😴"} Gere o cronograma ou adicione uma tarefa.</div>
+              <div className="px-5 pb-5 text-sm text-muted">{dayMin[today.getUTCDay()] > 0 ? "Nada agendado para hoje." : "Hoje é folga no seu plano. 😴"} Para estudar hoje, toque em “Refazer cronograma” ou adicione uma tarefa.</div>
             ) : <ul className="divide-y divide-line">{todayTasks.map((t) => <TaskRow key={t.id} t={t} />)}</ul>}
             {todayTasks.length > 0 && todayDone === todayTasks.length && <p className="border-t border-line px-5 py-3 text-sm font-bold text-green-700">🏆 Tudo feito hoje! Mandou bem, Sergio.</p>}
           </section>
@@ -204,8 +207,11 @@ export default async function Mentoria() {
                     </summary>
                     <div className="mt-3 space-y-2 rounded-xl bg-light p-3">
                       <ul className="space-y-1">{s.topics.map((t) => (
-                        <li key={t.id} className="flex items-center justify-between gap-2 text-sm">
+                        <li key={t.id} className="relative flex items-center justify-between gap-2 text-sm">
                           <form action={toggleTopic} className="flex-1"><input type="hidden" name="id" value={t.id} /><button className="flex w-full items-center gap-2 text-left"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 ${t.studiedAt ? "border-green-600 bg-green-600 text-white" : "border-line"}`}>{t.studiedAt ? "✓" : ""}</span><span className={t.studiedAt ? "text-muted line-through" : "text-ink"}>{t.name}</span></button></form>
+                          <a href={videoLink(t.name, s.name, t.videoUrl)} target="_blank" rel="noopener" title={t.videoUrl ? "Aula escolhida" : "Buscar aula no YouTube"} className={`shrink-0 text-xs font-bold ${t.videoUrl ? "text-red-700" : "text-muted hover:text-red-700"}`}>▶</a>
+                          <details className="shrink-0"><summary className="cursor-pointer list-none text-xs text-muted hover:text-navy" title="Colar link do vídeo">🔗</summary>
+                            <form action={setTopicVideo} className="absolute right-4 z-10 mt-1 flex w-72 gap-1 rounded-xl border border-line bg-white p-2 shadow-lg"><input type="hidden" name="id" value={t.id} /><input name="url" defaultValue={t.videoUrl ?? ""} placeholder="Link do YouTube (vazio = buscar)" className="input py-1.5 text-xs" /><button className="btn-navy btn-sm">OK</button></form></details>
                           <form action={deleteTopic}><input type="hidden" name="id" value={t.id} /><ConfirmButton message={`Remover o assunto "${t.name}"?`} className="text-xs text-muted hover:text-red-700">✕</ConfirmButton></form>
                         </li>))}</ul>
                       <TopicForm subjectId={s.id} />
@@ -215,6 +221,11 @@ export default async function Mentoria() {
                   </details>
                 </li>);
             })}</ul>
+            <div className="border-t border-line p-5">
+              <details><summary className="cursor-pointer font-bold text-navy">📄 Importar conteúdo do edital</summary>
+                <p className="my-2 text-sm text-muted">Copie o <b className="text-ink">Anexo IV – Conteúdo Programático</b> do edital da PMPB (PDF ou PS Mentoria) e cole aqui. O sistema separa os temas de cada matéria e refaz o cronograma.</p>
+                <EditalImportForm /></details>
+            </div>
             <div className="border-t border-line p-5"><p className="mb-2 font-bold text-navy">Nova matéria</p><SubjectForm /></div>
           </section>
         </div>
@@ -229,7 +240,7 @@ export default async function Mentoria() {
           <section className="card space-y-2 text-sm text-muted">
             <p className="font-bold text-navy">Como usar</p>
             <p>1. Em <b className="text-ink">Plano, horas e metas</b>, coloque quantas horas você tem em cada dia e a data da prova.</p>
-            <p>2. Toque em <b className="text-ink">Gerar 7 dias</b>: o sistema monta o que estudar em cada dia.</p>
+            <p>2. O cronograma se monta sozinho com o assunto de cada matéria e um link de aula no YouTube. Mudou as horas? <b className="text-ink">↻ Refazer cronograma</b>.</p>
             <p>3. Estudou? <b className="text-ink">✓ Estudei</b> (com questões e acertos). As revisões entram sozinhas.</p>
             <p>4. Não deu? <b className="text-ink">↻ Amanhã</b> ou outra data. Atrasadas aparecem no topo.</p>
             <p>5. A cada {plan.simuladoEvery || 15} dias tem <b className="text-ink">simulado</b>: registre os acertos e acompanhe o gráfico.</p>

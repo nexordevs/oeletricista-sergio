@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { ensureSetup } from "@/lib/mentoria-server";
-import { todayBR, addDays, dayKey, parseList, KIND_LABEL } from "@/lib/mentoria";
+import { todayBR, addDays, dayKey, parseList, videoLink, KIND_LABEL } from "@/lib/mentoria";
 import { undoTask } from "../actions";
 import { DoneForm, RescheduleForm } from "../forms";
 import { MentoriaTabs } from "../Tabs";
@@ -19,7 +19,7 @@ export default async function Semana(props: { searchParams: Promise<{ s?: string
   const today = todayBR();
   const sunday = addDays(today, -today.getUTCDay() + off * 7);
   const [tasks, logs] = await Promise.all([
-    prisma.studyTask.findMany({ where: { userId: u.id, date: { gte: sunday, lt: addDays(sunday, 7) } }, orderBy: [{ kind: "asc" }, { createdAt: "asc" }], include: { subject: { select: { name: true } } } }),
+    prisma.studyTask.findMany({ where: { userId: u.id, date: { gte: sunday, lt: addDays(sunday, 7) } }, orderBy: [{ kind: "asc" }, { createdAt: "asc" }], include: { subject: { select: { name: true } }, topic: { select: { name: true, videoUrl: true } } } }),
     prisma.studyQuestionLog.findMany({ where: { userId: u.id, date: { gte: sunday, lt: addDays(sunday, 7) } }, select: { date: true, questions: true, correct: true } }),
   ]);
   const studyDays = parseList(plan.studyDays);
@@ -61,6 +61,7 @@ export default async function Semana(props: { searchParams: Promise<{ s?: string
                       {t.status === "FEITO" && <span className="badge bg-green-600 text-white">✓ feito</span>}
                       {late && <span className="badge bg-white text-red-700">atrasada</span>}
                     </div>
+                    {t.status !== "FEITO" && t.kind !== "SIMULADO" && <a href={videoLink(t.topic?.name ?? t.title.replace(/^[^:]+: /, ""), t.subject?.name, t.topic?.videoUrl)} target="_blank" rel="noopener" className={`mt-2 inline-block text-xs font-bold hover:underline ${late ? "text-white" : "text-red-700"}`}>▶ Aula no YouTube</a>}
                     {t.status === "FEITO" ? (
                       <form action={undoTask} className="mt-2"><input type="hidden" name="id" value={t.id} /><button className="text-xs font-bold text-muted underline">desfazer</button></form>
                     ) : (

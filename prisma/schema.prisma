@@ -588,6 +588,7 @@ model StudyTopic {
   name      String
   sortOrder Int          @default(0)
   studiedAt DateTime?
+  videoUrl  String?      // aula do YouTube escolhida para o tema
   tasks     StudyTask[]
   questionLogs StudyQuestionLog[]
 
