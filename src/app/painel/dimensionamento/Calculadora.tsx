@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { dimensionar, METODOS, PRESETS, type Entrada, type Metodo, type Sistema, type TipoCircuito } from "@/lib/eletrica/dimensionamento";
+import { BuscaAparelho } from "./BuscaAparelho";
 
 const num = (s: string) => { const n = Number(s.replace(",", ".")); return Number.isFinite(n) ? n : 0; };
 const fmt = (n: number | null, d = 1) => (n == null ? "—" : n.toLocaleString("pt-BR", { maximumFractionDigits: d }));
@@ -25,8 +26,9 @@ export function Calculadora() {
     <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
       <section className="card space-y-4">
         <div><label className={L} htmlFor="preset">Aparelho comum (preenche os campos)</label>
-          <select id="preset" className={I} defaultValue="" onChange={(e) => preset(e.target.value)}><option value="">Escolha… (ou preencha abaixo)</option>{grupos.map((g) => <optgroup key={g} label={g}>{PRESETS.map((p, i) => (p.grupo === g ? <option key={p.nome} value={i}>{p.nome}</option> : null))}</optgroup>)}</select>
-          <p className="mt-1 text-xs text-muted">{PRESETS.length} aparelhos e circuitos com potências típicas. Use sempre a da placa do equipamento ou do projeto.</p></div>
+          <div className="mb-2"><BuscaAparelho onPick={(i) => preset(String(i))} /></div>
+          <select id="preset" className={I} defaultValue="" onChange={(e) => preset(e.target.value)}><option value="">Ou escolha pela lista…</option>{grupos.map((g) => <optgroup key={g} label={g}>{PRESETS.map((p, i) => (p.grupo === g ? <option key={p.nome} value={i}>{p.nome}</option> : null))}</optgroup>)}</select>
+          <p className="mt-1 text-xs text-muted">{PRESETS.length} aparelhos de casa e apartamento com potências típicas. Use sempre a da placa do equipamento ou do projeto.</p></div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div><label className={L} htmlFor="pot">Potência (W)</label><input id="pot" className={I} inputMode="decimal" value={f.potencia} onChange={(e) => set("potencia", e.target.value)} /></div>
           <div><label className={L} htmlFor="ten">Tensão (V)</label><select id="ten" className={I} value={f.tensao} onChange={(e) => set("tensao", e.target.value)}>{["127", "220", "380"].map((v) => <option key={v}>{v}</option>)}</select></div>

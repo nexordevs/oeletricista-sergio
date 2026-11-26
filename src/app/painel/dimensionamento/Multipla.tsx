@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { projetoCompleto, METODOS, ENTRADAS, PRESETS, type Carga, type ConfigObra, type Entrada3, type Metodo, type TipoCircuito } from "@/lib/eletrica/dimensionamento";
 import { IconPlus, IconTrash } from "@/components/icons";
+import { BuscaAparelho } from "./BuscaAparelho";
 
 const num = (s: string) => { const n = Number(String(s).replace(",", ".")); return Number.isFinite(n) ? n : 0; };
 const fmt = (n: number | null | undefined, d = 1) => (n == null ? "—" : n.toLocaleString("pt-BR", { maximumFractionDigits: d }));
@@ -15,6 +16,7 @@ const daPreset = (i: number): Linha => {
   return linha({ nome: p.nome.replace(/\s*\(~?[\d.,]+\s*(W|VA)\)\s*$/, ""), potencia: String(p.w), tipo: p.tipo, molhada: Boolean(p.molhada), fp: p.fp, sistema: p.sistema ?? "mono", tensao: p.tensao ?? 220 });
 };
 const byName = (n: string) => PRESETS.findIndex((p) => p.nome.startsWith(n));
+const APTO = [["Chuveiro 7.500 W", 2, 10], ["Split inverter 9.000 BTU", 2, 12], ["Split inverter 12.000 BTU", 1, 10], ["Tomadas da cozinha", 1, 8], ["Tomadas da área de serviço", 1, 8], ["Tomadas de sala/quartos", 2, 12], ["Tomadas do banheiro", 1, 10], ["Iluminação de apartamento 3 quartos", 1, 15], ["Micro-ondas", 1, 8], ["Air fryer", 1, 8]] as const;
 const CASA = [["Chuveiro 7.500 W", 1, 12], ["Ar 12.000 BTU", 2, 18], ["Tomadas da cozinha", 1, 10], ["Tomadas da área de serviço", 1, 12], ["Tomadas de sala/quartos", 2, 15], ["Tomadas do banheiro", 1, 12], ["Iluminação interna", 2, 20], ["Micro-ondas", 1, 10]] as const;
 
 export function Multipla() {
@@ -55,13 +57,15 @@ export function Multipla() {
 
         <section className="card space-y-3">
           <div className="flex items-center justify-between gap-2"><p className="text-lg font-bold text-navy">2. Cargas / circuitos</p>{linhas.length > 0 && <button type="button" className="text-sm font-bold text-red-700" onClick={() => setLinhas([])}>Limpar tudo</button>}</div>
+          <BuscaAparelho onPick={(i) => setLinhas((p) => [...p, daPreset(i)])} />
           <select aria-label="Adicionar aparelho" className={I} value="" onChange={(e) => { const i = Number(e.target.value); if (e.target.value !== "") setLinhas((p) => [...p, daPreset(i)]); }}>
-            <option value="">+ Adicionar aparelho ou circuito…</option>
+            <option value="">+ Ou escolha pela lista ({PRESETS.length} itens)…</option>
             {grupos.map((g) => <optgroup key={g} label={g}>{PRESETS.map((p, i) => (p.grupo === g ? <option key={p.nome} value={i}>{p.nome}</option> : null))}</optgroup>)}
           </select>
           <div className="grid grid-cols-2 gap-2">
             <button type="button" className="btn-outline btn-sm" onClick={() => setLinhas((p) => [...p, linha()])}><IconPlus /> Carga personalizada</button>
             <button type="button" className="btn-outline btn-sm" onClick={() => setLinhas((p) => [...p, ...CASA.map(([n, q, d]) => ({ ...daPreset(byName(n)), quantidade: String(q), comprimento: String(d) }))])}><IconPlus /> Exemplo: casa padrão</button>
+            <button type="button" className="btn-outline btn-sm col-span-2" onClick={() => setLinhas((p) => [...p, ...APTO.map(([n, q, d]) => ({ ...daPreset(byName(n)), quantidade: String(q), comprimento: String(d) }))])}><IconPlus /> Exemplo: apartamento 3 quartos</button>
           </div>
           {linhas.length === 0 && <p className="rounded-xl bg-light p-4 text-center text-muted">Adicione os aparelhos e circuitos da obra. Pode colocar vários: chuveiro, ar, tomadas, iluminação…</p>}
           {linhas.map((l) => (
