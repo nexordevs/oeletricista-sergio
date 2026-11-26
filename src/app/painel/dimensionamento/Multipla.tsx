@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { projetoCompleto, distanciaPorArea, parseTamanho, comodosPorArea, montarCasa, COMODOS_ROTULO, type Comodos, METODOS, IMOVEIS, PRESETS, type Carga, type ConfigObra, type Entrada3, type Metodo, type TipoCircuito, type TipoImovel } from "@/lib/eletrica/dimensionamento";
 import { IconPlus, IconTrash } from "@/components/icons";
-import { BuscaAparelho } from "./BuscaAparelho";
+import { BuscaAparelho, NomeComSugestao } from "./BuscaAparelho";
 import { QuadroDesenho } from "./QuadroDesenho";
 import { CONCESSIONARIAS, CONCESSIONARIA_PADRAO, concessionaria, nomeLigacao } from "@/lib/eletrica/concessionarias";
 
@@ -134,7 +134,7 @@ export function Multipla() {
           {linhas.map((l) => (
             <div key={l.id} className="space-y-2 rounded-xl border border-line p-3">
               <div className="flex items-center gap-2">
-                <input className="input py-2 font-bold" aria-label="Nome da carga" value={l.nome} onChange={(e) => upd(l.id, { nome: e.target.value })} />
+                <NomeComSugestao value={l.nome} onChange={(v) => upd(l.id, { nome: v })} onPick={(i) => { const n = novo(i); upd(l.id, { nome: n.nome, potencia: n.potencia, tipo: n.tipo, molhada: n.molhada, fp: n.fp, sistema: n.sistema, tensao: n.tensao, ...(l.auto ? { comprimento: n.comprimento } : {}) }); }} />
                 <button type="button" onClick={() => setLinhas((p) => p.filter((x) => x.id !== l.id))} className="p-2 text-red-700" aria-label="Remover carga"><IconTrash className="h-5 w-5" /></button>
               </div>
               <div className="grid grid-cols-3 gap-2">
