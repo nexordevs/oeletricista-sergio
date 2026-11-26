@@ -425,32 +425,47 @@ export function comodosPorArea(area: number, imovel: TipoImovel = "terrea"): Com
   };
 }
 
-/** Monta os circuitos da casa pelos cômodos (critérios da NBR 5410: chuveiro e ar em circuito próprio,
- *  cozinha/serviço/banheiro com tomadas separadas, sala e quartos agrupados de 2 em 2). */
-export function montarCasa(c: Comodos, area: number, imovel: TipoImovel): { nome: string; qtd: number }[] {
-  const out: { nome: string; qtd: number }[] = [];
-  const add = (nome: string, qtd: number) => { if (qtd > 0) out.push({ nome, qtd }); };
-  const molhados = c.banheiros + c.suites;
-  add("Chuveiro 7.500 W", molhados);
-  if (c.arQuartos) { add("Split inverter 9.000 BTU", c.quartos); add("Split inverter 12.000 BTU", c.suites); }
-  if (c.arSala) add(area >= 120 ? "Split inverter 18.000 BTU" : "Split inverter 12.000 BTU", c.salas);
-  add("Tomadas da cozinha", c.cozinhas);
-  add("Micro-ondas", c.cozinhas > 0 ? 1 : 0);
-  add("Tomadas da copa", c.copas);
-  add("Tomadas da área de serviço", c.servico);
-  add("Tomadas de sala/quartos", Math.ceil((c.quartos + c.suites + c.salas) / 2));
-  add("Tomadas do escritório", c.escritorios);
-  add("Tomadas do banheiro", Math.ceil(molhados / 2));
-  add("Tomadas da varanda gourmet", c.gourmet);
-  add("Tomadas da área externa / varanda", c.varandas + (c.quintal ? 1 : 0) > 0 ? Math.ceil((c.varandas + (c.quintal ? 1 : 0)) / 2) : 0);
-  add("Tomadas da garagem", c.garagens);
-  const ambientes = c.quartos + c.suites + c.salas + c.cozinhas + c.copas + c.servico + molhados + c.escritorios + c.gourmet;
-  if (imovel === "apartamento") add(c.quartos + c.suites <= 2 ? "Iluminação de apartamento 2 quartos" : "Iluminação de apartamento 3 quartos", Math.max(1, Math.ceil(ambientes / 10)));
-  else add("Iluminação interna da casa", Math.max(1, Math.ceil(ambientes / 6)));
-  if (c.quintal || c.garagens > 0 || (imovel !== "apartamento" && c.varandas > 0)) add("Iluminação externa / jardim", 1);
-  if (c.portao) add("Portão eletrônico", 1);
-  if (c.bomba) add("Bomba d'água 1/2 cv", 1);
-  if (c.piscina) { add("Bomba de piscina 1/2 cv", 1); add("Iluminação de piscina LED", 1); }
+/** Monta os circuitos da casa pelos cômodos, juntando o que a prática e a NBR 5410 permitem:
+ *  - chuveiro, cada ar, bomba e portão: circuito próprio;
+ *  - cozinha/copa: tomadas em circuito só delas (geladeira, micro-ondas e eletrodomésticos já entram aqui);
+ *  - área de serviço: circuito próprio (máquina de lavar); em casa pequena leva junto as tomadas externas;
+ *  - sala, quartos, escritório e banheiro: no mesmo circuito até ~2.500 VA;
+ *  - iluminação interna + externa num circuito até ~1.200 W. */
+export type CircuitoCasa = { nome: string; qtd: number; w?: number; rotulo?: string; molhada?: boolean };
+export function montarCasa(c: Comodos, area: number, imovel: TipoImovel): CircuitoCasa[] {
+  const out: CircuitoCasa[] = [];
+  const add = (x: CircuitoCasa) => { if (x.qtd > 0) out.push(x); };
+  const molhados = c.banheiros + c.suites, casa = imovel !== "apartamento";
+  const pequena = area < 100;
+  add({ nome: "Chuveiro 7.500 W", qtd: molhados });
+  if (c.arQuartos) { add({ nome: "Split inverter 9.000 BTU", qtd: c.quartos }); add({ nome: "Split inverter 12.000 BTU", qtd: c.suites }); }
+  if (c.arSala) add({ nome: area >= 120 ? "Split inverter 18.000 BTU" : "Split inverter 12.000 BTU", qtd: c.salas });
+  // cozinha + copa (eletrodomésticos inclusos)
+  const coz = c.cozinhas + c.copas;
+  if (coz > 0) add({ nome: "Tomadas da cozinha", qtd: coz, rotulo: c.copas && c.cozinhas ? "Tomadas cozinha + copa" : "Tomadas cozinha + eletrodomésticos" });
+  // área de serviço (+ externas em casa pequena)
+  const ext = c.varandas + c.gourmet + c.garagens + (c.quintal ? 1 : 0);
+  const extJunto = pequena && c.servico > 0 && c.gourmet === 0;
+  add({ nome: "Tomadas da área de serviço", qtd: c.servico, ...(extJunto && ext > 0 ? { w: 1800 + 300 * ext, rotulo: "Tomadas serviço + área externa" } : {}) });
+  // sala, quartos, escritório e banheiros agrupados até ~2.500 VA por circuito
+  const va = c.quartos * 300 + c.suites * 300 + c.salas * 400 + c.escritorios * 600 + molhados * 600;
+  const nSeco = va > 0 ? Math.ceil(va / 2500) : 0;
+  const partes = [c.salas && "sala", (c.quartos + c.suites) && "quartos", c.escritorios && "escritório", molhados && "banheiro"].filter(Boolean).join(", ");
+  add({ nome: "Tomadas de sala/quartos", qtd: nSeco, w: Math.max(600, Math.round(va / Math.max(1, nSeco) / 100) * 100), rotulo: `Tomadas de ${partes}`, molhada: molhados > 0 });
+  // externas separadas (casa maior ou com varanda gourmet)
+  if (!extJunto && ext > 0) {
+    add({ nome: "Tomadas da varanda gourmet", qtd: c.gourmet });
+    const outras = c.varandas + c.garagens + (c.quintal ? 1 : 0);
+    add({ nome: "Tomadas da área externa / varanda", qtd: outras > 0 ? Math.ceil(outras / 3) : 0, w: Math.min(2000, 300 * outras) || undefined, rotulo: "Tomadas externas" });
+  }
+  // iluminação
+  const temExt = casa && (c.quintal || c.garagens > 0 || c.varandas > 0);
+  const wIlum = Math.max(300, Math.round((area * 6) / 50) * 50) + (temExt ? 200 : 0);
+  const nIlum = Math.max(1, Math.ceil(wIlum / 1200));
+  add({ nome: imovel === "apartamento" ? "Iluminação de apartamento 3 quartos" : "Iluminação interna da casa", qtd: nIlum, w: Math.round(wIlum / nIlum / 50) * 50, rotulo: temExt ? "Iluminação interna e externa" : "Iluminação", molhada: temExt });
+  if (c.portao) add({ nome: "Portão eletrônico", qtd: 1 });
+  if (c.bomba) add({ nome: "Bomba d'água 1/2 cv", qtd: 1 });
+  if (c.piscina) { add({ nome: "Bomba de piscina 1/2 cv", qtd: 1 }); add({ nome: "Iluminação de piscina LED", qtd: 1 }); }
   return out;
 }
 

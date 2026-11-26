@@ -106,7 +106,10 @@ test("tamanho digitado: área ou medidas, e a casa montada por ele", async () =>
   const l = montarCasa(casa, 60, "terrea");
   assert.ok(!l.some((x) => x.nome.startsWith("Split")));
   assert.equal(l.find((x) => x.nome === "Chuveiro 7.500 W")!.qtd, 1);
-  assert.equal(l.find((x) => x.nome === "Tomadas de sala/quartos")!.qtd, 2); // 2 quartos + sala → 2 circuitos
+  assert.equal(l.find((x) => x.nome === "Tomadas de sala/quartos")!.qtd, 1, "2 quartos + sala + banheiro cabem num circuito");
+  assert.ok(!l.some((x) => x.nome === "Micro-ondas"), "micro-ondas entra nas tomadas da cozinha");
+  assert.equal(l.filter((x) => x.nome.startsWith("Iluminação")).reduce((a, x) => a + x.qtd, 0), 1, "iluminação interna e externa juntas");
+  assert.ok(l.reduce((a, x) => a + x.qtd, 0) <= 9, "casa de 60 m² sem ar: poucos circuitos");
 });
 
 test("concessionária: categoria de entrada e tensão do sistema", async () => {

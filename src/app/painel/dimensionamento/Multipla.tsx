@@ -44,7 +44,7 @@ export function Multipla() {
   const montar = () => {
     if (!tam || !comodos) return;
     if (linhas.length && !confirm("Trocar a lista de cargas pela instalação montada pelo tamanho?")) return;
-    const novas = montarCasa(comodos, tam.area, cfg.imovel).map(({ nome, qtd }) => { const l = daPreset(byName(nome)); return { ...l, quantidade: String(qtd), comprimento: dist(l.tipo) }; });
+    const novas = montarCasa(comodos, tam.area, cfg.imovel).map(({ nome, qtd, w, rotulo, molhada }) => { const l = daPreset(byName(nome)); return { ...l, ...(rotulo ? { nome: rotulo } : {}), ...(w ? { potencia: String(w) } : {}), ...(molhada != null ? { molhada: molhada || l.molhada } : {}), quantidade: String(qtd), comprimento: dist(l.tipo) }; });
     setLinhas(novas);
     // escolhe o padrão de entrada pela demanda (até 63 A por fase)
     ajustarEntrada(novas, conf);
@@ -108,7 +108,7 @@ export function Multipla() {
               </div>
             </div>
             <button type="button" onClick={montar} className="btn-primary w-full">⚡ Calcular a instalação da casa</button>
-            <p className="-mt-1 text-xs text-muted">Chuveiro e ar em circuito próprio; cozinha, serviço e banheiro com tomadas separadas; sala e quartos de 2 em 2 (critérios da NBR 5410). Depois dá para ajustar cada carga.</p>
+            <p className="-mt-1 text-xs text-muted">Chuveiro, ar e bomba em circuito próprio; cozinha (com os eletrodomésticos) e área de serviço separadas; sala, quartos e banheiro juntos até ~2.500 VA; iluminação junta (NBR 5410). Depois dá para ajustar cada carga.</p>
           </>)}
           <div className="grid gap-3 sm:grid-cols-2">
             <div><label className={L} htmlFor="ent">Padrão de entrada</label><select id="ent" className={I} value={cfg.entrada} onChange={(e) => setC("entrada", e.target.value)}>{([["mono", 1], ["bi", 2], ["tri", 3]] as const).map(([k, f]) => <option key={k} value={k}>{nomeLigacao(f, sist)}</option>)}</select></div>
@@ -162,7 +162,7 @@ export function Multipla() {
               <Box k="Disjuntor geral" v={pj.geral.disjuntor ? `${pj.geral.disjuntor} A` : "—"} s={pj.polosGeral === 2 ? "bipolar" : "tripolar"} />
               <Box k="Cabo de entrada" v={pj.geral.secao ? `${fmt(pj.geral.secao)} mm²` : "—"} s={`terra ${fmt(pj.geral.terra)} mm²`} />
               <Box k="DR 30 mA" v={`${pj.dr.corrente} A`} s={pj.dr.polos === 2 ? "bipolar" : "tetrapolar"} />
-              <Box k="Quadro" v={`${pj.quadro} disj.`} s={`${pj.modulos} usados + ${pj.reserva} reserva`} />
+              <Box k="Quadro" v={`${pj.quadro} disj.`} s={`${pj.circuitos.length} circuitos + geral, DR e DPS`} />
             </div>
           </div>
           <div className="card space-y-1.5 text-sm">

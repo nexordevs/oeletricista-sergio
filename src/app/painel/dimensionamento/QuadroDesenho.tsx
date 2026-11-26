@@ -52,7 +52,7 @@ export function QuadroDesenho({ pj, titulo }: { pj: Projeto; titulo: string }) {
         <svg ref={ref} xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${W} ${H}`} className="mx-auto w-full" style={{ maxWidth: Math.max(360, W) }} role="img" aria-label={`Quadro de ${pj.quadro} disjuntores com ${pj.circuitos.length} circuitos`} fontFamily="Arial, Helvetica, sans-serif">
           <rect width={W} height={H} fill="#ffffff" />
           <text x={W / 2} y={18} textAnchor="middle" fontSize={13} fontWeight={700} fill="#0b2545">{titulo}</text>
-          <text x={W / 2} y={33} textAnchor="middle" fontSize={10.5} fill="#5b6b7f">Quadro de {pj.quadro} disjuntores · {pj.modulos} usados + {pj.quadro - pj.modulos > 0 ? pj.quadro - pj.modulos : pj.reserva} reserva</text>
+          <text x={W / 2} y={33} textAnchor="middle" fontSize={10.5} fill="#5b6b7f">Quadro de {pj.quadro} disjuntores · {pj.circuitos.length} circuitos + geral, DR e DPS · {pj.quadro - pj.modulos} espaços livres</text>
           {/* caixa do quadro */}
           <g transform="translate(0,40)">
             <rect x={4} y={0} width={W - 8} height={boxH} rx={10} fill="#e9edf2" stroke="#9aa7b6" strokeWidth={2} />
