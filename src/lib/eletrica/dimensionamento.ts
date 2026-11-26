@@ -75,8 +75,8 @@ export function dimensionar(e: Entrada): Resultado {
   const curva: "B" | "C" = e.tipo === "motor" ? "C" : "B";
 
   let disjuntor: number | null = DISJUNTORES.find((d) => d >= ib) ?? null;
-  // prática usual: iluminação ≥ 10 A e tomadas ≥ 16 A (um 6 A desarma com secador/ferro), se o fio mínimo aguentar
-  const piso = e.tipo === "iluminacao" ? 10 : e.tipo === "tomadas" ? 16 : 0;
+  // prática usual: tomadas ≥ 16 A (um 6 A desarma com secador/ferro) e os demais ≥ 10 A, se o fio mínimo aguentar
+  const piso = e.tipo === "tomadas" ? 16 : 10; // ar, bomba e motores: partida do compressor/motor
   if (disjuntor && disjuntor < piso) {
     const izMin = TAB36[e.metodo][SECOES.indexOf(minimoNorma as (typeof SECOES)[number])][carregados] * fatorTemp * fatorAgrup;
     disjuntor = [...DISJUNTORES].reverse().find((d) => d <= piso && d <= izMin && d >= disjuntor!) ?? disjuntor;

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { projetoCompleto, distanciaPorArea, parseTamanho, comodosPorArea, montarCasa, COMODOS_ROTULO, type Comodos, METODOS, IMOVEIS, PRESETS, type Carga, type ConfigObra, type Entrada3, type Metodo, type TipoCircuito, type TipoImovel } from "@/lib/eletrica/dimensionamento";
 import { IconPlus, IconTrash } from "@/components/icons";
 import { BuscaAparelho } from "./BuscaAparelho";
+import { QuadroDesenho } from "./QuadroDesenho";
 import { CONCESSIONARIAS, CONCESSIONARIA_PADRAO, concessionaria, nomeLigacao } from "@/lib/eletrica/concessionarias";
 
 const num = (s: string) => { const n = Number(String(s).replace(",", ".")); return Number.isFinite(n) ? n : 0; };
@@ -183,6 +184,8 @@ export function Multipla() {
               </table>
             </div>
           </div>
+
+          <QuadroDesenho pj={pj} titulo={`${tam ? `Casa ${fmt(tam.area, 0)} m² · ` : ""}${pj.categoria ?? pj.concessionaria}`} />
 
           <div className="card p-0">
             <p className="rounded-t-2xl bg-navy px-4 py-2.5 text-sm font-bold uppercase text-white">Materiais necessários</p>
