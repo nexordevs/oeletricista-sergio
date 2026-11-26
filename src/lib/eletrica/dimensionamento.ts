@@ -385,11 +385,49 @@ export type Projeto = {
  *  + 3 m de descidas/subidas nas paredes; sobrado soma +3 m (pé-direito). */
 export type TipoImovel = "terrea" | "apartamento" | "sobrado";
 export const IMOVEIS: Record<TipoImovel, string> = { terrea: "Casa térrea", apartamento: "Apartamento", sobrado: "Sobrado (2 andares)" };
-export function distanciaPorArea(areaM2: number, tipo: TipoCircuito, imovel: TipoImovel = "terrea"): number {
+export function distanciaPorArea(areaM2: number, tipo: TipoCircuito, imovel: TipoImovel = "terrea", ladoMedio?: number): number {
   if (!(areaM2 > 0)) return 15;
-  const lado = Math.sqrt(areaM2);
+  const lado = ladoMedio && ladoMedio > 0 ? ladoMedio : Math.sqrt(areaM2); // 10x20 → lado médio 15 m
   const k = tipo === "iluminacao" ? 2 : tipo === "tomadas" ? 1.6 : tipo === "motor" ? 1.2 : 1;
   return Math.max(5, Math.round(lado * k + 3 + (imovel === "sobrado" ? 3 : 0)));
+}
+
+/** Lê o tamanho digitado: "120", "120 m²", "10x20", "10 x 20", "10,5*20". */
+export function parseTamanho(txt: string): { area: number; lado?: number; frente?: number; fundo?: number } | null {
+  const t = txt.toLowerCase().replace(/m²|m2|metros?|m\b/g, "").replace(/,/g, ".").trim();
+  const dim = t.match(/^(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)$/);
+  if (dim) { const a = Number(dim[1]), b = Number(dim[2]); return a > 0 && b > 0 ? { area: Math.round(a * b), lado: (a + b) / 2, frente: a, fundo: b } : null; }
+  const n = Number(t); return n > 0 ? { area: Math.round(n) } : null;
+}
+
+/** Programa da casa estimado pela área (o eletricista ajusta). */
+export function comodosPorArea(area: number) {
+  const quartos = area < 45 ? 1 : area < 75 ? 2 : area < 130 ? 3 : area < 260 ? 4 : 5;
+  const banheiros = area < 70 ? 1 : area < 120 ? 2 : area < 220 ? 3 : 4;
+  return { quartos, banheiros };
+}
+
+/** Monta as cargas típicas de uma residência pelo tamanho (critérios da NBR 5410 para quantidade de circuitos
+ *  e potências usuais de mercado). Devolve nomes da lista de aparelhos + quantidade de circuitos. */
+export function montarPorArea(o: { area: number; quartos: number; banheiros: number; imovel: TipoImovel; ar: boolean }): { nome: string; qtd: number }[] {
+  const { area, quartos, banheiros, imovel, ar } = o;
+  const out: { nome: string; qtd: number }[] = [];
+  const add = (nome: string, qtd: number) => { if (qtd > 0) out.push({ nome, qtd }); };
+  add("Chuveiro 7.500 W", banheiros);
+  if (ar) { add("Split inverter 9.000 BTU", Math.max(0, quartos - (quartos >= 3 ? 1 : 0))); if (quartos >= 3) add("Split inverter 12.000 BTU", 1); if (area >= 90) add("Split inverter 18.000 BTU", 1); }
+  add("Tomadas da cozinha", area >= 150 ? 2 : 1);
+  add("Micro-ondas", 1);
+  add("Tomadas da área de serviço", 1);
+  add("Tomadas de sala/quartos", Math.ceil((quartos + 1) / 2)); // sala + quartos, 2 cômodos por circuito
+  add("Tomadas do banheiro", Math.ceil(banheiros / 2));
+  const ilum = Math.max(1, Math.ceil((area * 6) / 1000)); // LED ~6 W/m², até ~1.000 W por circuito
+  add(imovel === "apartamento" ? (quartos <= 2 ? "Iluminação de apartamento 2 quartos" : "Iluminação de apartamento 3 quartos") : "Iluminação interna da casa", imovel === "apartamento" ? 1 : Math.max(area > 60 ? 2 : 1, ilum));
+  if (imovel !== "apartamento") {
+    add("Tomadas da área externa / varanda", 1);
+    add("Iluminação externa / jardim", 1);
+    if (area >= 90) { add("Portão eletrônico", 1); add("Bomba d'água 1/2 cv", 1); }
+  }
+  return out;
 }
 
 // Fatores de demanda de REFERÊNCIA (método usual em projeto residencial; a concessionária pode exigir outro)

@@ -86,3 +86,19 @@ test("materiais dizem onde usar e separam fase, neutro e terra", async () => {
   assert.ok(p.materiais.every((m) => m.uso.length > 0), "todo material tem onde usar");
   assert.match(p.materiais.find((m) => m.chave === "dr")!.uso, /Chuveiro/);
 });
+
+test("tamanho digitado: área ou medidas, e a casa montada por ele", async () => {
+  const { parseTamanho, montarPorArea, comodosPorArea, distanciaPorArea, PRESETS } = await import("../src/lib/eletrica/dimensionamento");
+  assert.deepEqual(parseTamanho("10x20"), { area: 200, lado: 15, frente: 10, fundo: 20 });
+  assert.equal(parseTamanho("10,5 X 20 m")!.area, 210);
+  assert.equal(parseTamanho("120 m²")!.area, 120);
+  assert.equal(parseTamanho("abc"), null);
+  assert.ok(distanciaPorArea(200, "tomadas", "terrea", 15) > distanciaPorArea(200, "tomadas"), "terreno comprido anda mais fio que quadrado");
+  for (const area of [40, 75, 120, 200, 300]) for (const imovel of ["terrea", "apartamento", "sobrado"] as const) {
+    const c = comodosPorArea(area), lista = montarPorArea({ area, ...c, imovel, ar: true });
+    for (const x of lista) assert.ok(PRESETS.some((p) => p.nome.startsWith(x.nome)), `${x.nome} existe na lista`);
+    assert.equal(lista.find((x) => x.nome.startsWith("Chuveiro"))!.qtd, c.banheiros);
+  }
+  assert.ok(comodosPorArea(200).quartos > comodosPorArea(60).quartos);
+  assert.ok(!montarPorArea({ area: 100, quartos: 3, banheiros: 2, imovel: "terrea", ar: false }).some((x) => x.nome.startsWith("Split")));
+});

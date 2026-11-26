@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { projetoCompleto, distanciaPorArea, METODOS, ENTRADAS, IMOVEIS, PRESETS, type Carga, type ConfigObra, type Entrada3, type Metodo, type TipoCircuito, type TipoImovel } from "@/lib/eletrica/dimensionamento";
+import { projetoCompleto, distanciaPorArea, parseTamanho, comodosPorArea, montarPorArea, METODOS, ENTRADAS, IMOVEIS, PRESETS, type Carga, type ConfigObra, type Entrada3, type Metodo, type TipoCircuito, type TipoImovel } from "@/lib/eletrica/dimensionamento";
 import { IconPlus, IconTrash } from "@/components/icons";
 import { BuscaAparelho } from "./BuscaAparelho";
 
@@ -16,25 +16,32 @@ const daPreset = (i: number): Linha => {
   return linha({ nome: p.nome.replace(/\s*\(~?[\d.,]+\s*(W|VA)\)\s*$/, ""), potencia: String(p.w), tipo: p.tipo, molhada: Boolean(p.molhada), fp: p.fp, sistema: p.sistema ?? "mono", tensao: p.tensao ?? 220 });
 };
 const byName = (n: string) => PRESETS.findIndex((p) => p.nome.startsWith(n));
-const APTO = [["Chuveiro 7.500 W", 2], ["Split inverter 9.000 BTU", 2], ["Split inverter 12.000 BTU", 1], ["Tomadas da cozinha", 1], ["Tomadas da área de serviço", 1], ["Tomadas de sala/quartos", 2], ["Tomadas do banheiro", 1], ["Iluminação de apartamento 3 quartos", 1], ["Micro-ondas", 1], ["Air fryer", 1]] as const;
-const CASA = [["Chuveiro 7.500 W", 1], ["Ar 12.000 BTU", 2], ["Tomadas da cozinha", 1], ["Tomadas da área de serviço", 1], ["Tomadas de sala/quartos", 2], ["Tomadas do banheiro", 1], ["Iluminação interna", 2], ["Micro-ondas", 1]] as const;
-
 export function Multipla() {
   const router = useRouter();
   const [linhas, setLinhas] = useState<Linha[]>([]);
-  const [cfg, setCfg] = useState({ area: "", imovel: "terrea" as TipoImovel, entrada: "mono" as Entrada3, metodo: "B1" as Metodo, temperatura: "30", quedaMax: "4", agrupados: "2", distanciaEntradaM: "10" });
-  const dist = (tipo: TipoCircuito, area = cfg.area, imovel = cfg.imovel) => String(distanciaPorArea(num(area), tipo, imovel));
+  const [cfg, setCfg] = useState({ area: "", imovel: "terrea" as TipoImovel, quartos: "", banheiros: "", entrada: "mono" as Entrada3, metodo: "B1" as Metodo, temperatura: "30", quedaMax: "4", agrupados: "2", distanciaEntradaM: "10" });
+  const [comAr, setComAr] = useState(true);
+  const tam = parseTamanho(cfg.area);
+  const est = tam ? comodosPorArea(tam.area) : null;
+  const dist = (tipo: TipoCircuito, t = tam, imovel = cfg.imovel) => String(distanciaPorArea(t?.area ?? 0, tipo, imovel, t?.lado));
   // mudou o tamanho do imóvel: refaz as distâncias que ainda estão automáticas
   const setC = (k: keyof typeof cfg, v: string) => {
     setCfg((p) => ({ ...p, [k]: v }));
-    if (k === "area" || k === "imovel") { const area = k === "area" ? v : cfg.area, imovel = (k === "imovel" ? v : cfg.imovel) as TipoImovel;
-      if (num(area) > 0) setLinhas((p) => p.map((l) => (l.auto ? { ...l, comprimento: dist(l.tipo, area, imovel) } : l))); }
+    if (k === "area" || k === "imovel") { const t = k === "area" ? parseTamanho(v) : tam, imovel = (k === "imovel" ? v : cfg.imovel) as TipoImovel;
+      if (t) setLinhas((p) => p.map((l) => (l.auto ? { ...l, comprimento: dist(l.tipo, t, imovel) } : l))); }
   };
-  const novo = (i: number): Linha => { const l = daPreset(i); return num(cfg.area) > 0 ? { ...l, comprimento: dist(l.tipo) } : l; };
-  const exemplo = (lista: readonly (readonly [string, number])[], area: string, imovel: TipoImovel) => {
-    const a = num(cfg.area) > 0 ? cfg.area : area, im = num(cfg.area) > 0 ? cfg.imovel : imovel;
-    if (!(num(cfg.area) > 0)) setCfg((p) => ({ ...p, area: a, imovel: im }));
-    setLinhas((p) => [...p, ...lista.map(([n, q]) => { const l = daPreset(byName(n)); return { ...l, quantidade: String(q), comprimento: dist(l.tipo, a, im) }; })]);
+  const novo = (i: number): Linha => { const l = daPreset(i); return tam ? { ...l, comprimento: dist(l.tipo) } : l; };
+  const quartos = Math.max(0, Math.round(num(cfg.quartos))) || est?.quartos || 0, banheiros = Math.max(0, Math.round(num(cfg.banheiros))) || est?.banheiros || 0;
+  const montar = () => {
+    if (!tam) return;
+    if (linhas.length && !confirm("Trocar a lista de cargas pela instalação montada pelo tamanho?")) return;
+    const novas = montarPorArea({ area: tam.area, quartos, banheiros, imovel: cfg.imovel, ar: comAr }).map(({ nome, qtd }) => { const l = daPreset(byName(nome)); return { ...l, quantidade: String(qtd), comprimento: dist(l.tipo) }; });
+    setLinhas(novas);
+    // escolhe o padrão de entrada pela demanda (até 63 A por fase)
+    const cs: Carga[] = novas.map((l) => ({ nome: l.nome, potenciaW: num(l.potencia), quantidade: num(l.quantidade), comprimentoM: num(l.comprimento), tipo: l.tipo, areaMolhada: l.molhada, fp: l.fp, sistema: l.sistema, tensao: l.tensao }));
+    const entrada = (["mono", "bi", "tri"] as const).find((e) => projetoCompleto(cs, { ...conf, entrada: e }).correnteDemanda <= 63) ?? "tri";
+    setCfg((p) => ({ ...p, entrada }));
+    setTimeout(() => document.getElementById("cargas")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
   const upd = (id: number, f: Partial<Linha>) => setLinhas((p) => p.map((l) => (l.id === id ? { ...l, ...f } : l)));
   const grupos = [...new Set(PRESETS.map((p) => p.grupo))];
@@ -56,10 +63,20 @@ export function Multipla() {
         <section className="card space-y-3">
           <p className="text-lg font-bold text-navy">1. Dados da instalação</p>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className={L} htmlFor="area">Área construída (m²)</label><input id="area" className={I} inputMode="decimal" placeholder="ex.: 80" value={cfg.area} onChange={(e) => setC("area", e.target.value)} /></div>
+            <div><label className={L} htmlFor="area">Tamanho do imóvel</label><input id="area" className={I} placeholder="ex.: 10x20 ou 200" value={cfg.area} onChange={(e) => setC("area", e.target.value)} /></div>
             <div><label className={L} htmlFor="imv">Tipo de imóvel</label><select id="imv" className={I} value={cfg.imovel} onChange={(e) => setC("imovel", e.target.value)}>{Object.entries(IMOVEIS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
           </div>
-          <p className="-mt-1 text-xs text-muted">{num(cfg.area) > 0 ? <>Distâncias calculadas pela área: iluminação ~{dist("iluminacao")} m, tomadas ~{dist("tomadas")} m, chuveiro/ar ~{dist("dedicado")} m por circuito. Pode ajustar em cada carga.</> : "Informe a área para a quantidade de fio sair pelo tamanho do imóvel (sem área, cada carga usa 15 m)."}</p>
+          {cfg.area && !tam && <p className="-mt-1 text-xs font-bold text-red-700">Digite a área (ex.: 200) ou as medidas (ex.: 10x20).</p>}
+          {tam && (<>
+            <p className="-mt-1 text-xs text-muted"><b className="text-ink">{fmt(tam.area, 0)} m²{tam.frente ? ` (${fmt(tam.frente)} × ${fmt(tam.fundo)} m)` : ""}</b> · fio por circuito: iluminação ~{dist("iluminacao")} m, tomadas ~{dist("tomadas")} m, chuveiro/ar ~{dist("dedicado")} m.</p>
+            <div className="grid grid-cols-3 items-end gap-3">
+              <div><label className={L} htmlFor="qts">Quartos</label><input id="qts" className={I} inputMode="numeric" placeholder={String(est!.quartos)} value={cfg.quartos} onChange={(e) => setC("quartos", e.target.value)} /></div>
+              <div><label className={L} htmlFor="bnh">Banheiros</label><input id="bnh" className={I} inputMode="numeric" placeholder={String(est!.banheiros)} value={cfg.banheiros} onChange={(e) => setC("banheiros", e.target.value)} /></div>
+              <label className="flex items-center gap-2 pb-3 text-sm font-bold text-navy"><input type="checkbox" checked={comAr} onChange={(e) => setComAr(e.target.checked)} className="h-4 w-4 accent-navy" /> Com ar</label>
+            </div>
+            <button type="button" onClick={montar} className="btn-primary w-full">⚡ Montar a instalação de {fmt(tam.area, 0)} m²</button>
+            <p className="-mt-1 text-xs text-muted">Monta {quartos} quarto(s), {banheiros} banheiro(s){comAr ? ", ar nos quartos" : ""}, cozinha, área de serviço, tomadas e iluminação (critérios da NBR 5410). Depois é só ajustar o que for diferente.</p>
+          </>)}
           <div className="grid gap-3 sm:grid-cols-2">
             <div><label className={L} htmlFor="ent">Padrão de entrada</label><select id="ent" className={I} value={cfg.entrada} onChange={(e) => setC("entrada", e.target.value)}>{Object.entries(ENTRADAS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
             <div><label className={L} htmlFor="dme">Distância medidor → quadro (m)</label><input id="dme" className={I} inputMode="decimal" value={cfg.distanciaEntradaM} onChange={(e) => setC("distanciaEntradaM", e.target.value)} /></div>
@@ -72,19 +89,15 @@ export function Multipla() {
           </div>
         </section>
 
-        <section className="card space-y-3">
+        <section id="cargas" className="card scroll-mt-20 space-y-3">
           <div className="flex items-center justify-between gap-2"><p className="text-lg font-bold text-navy">2. Cargas / circuitos</p>{linhas.length > 0 && <button type="button" className="text-sm font-bold text-red-700" onClick={() => setLinhas([])}>Limpar tudo</button>}</div>
           <BuscaAparelho onPick={(i) => setLinhas((p) => [...p, novo(i)])} />
           <select aria-label="Adicionar aparelho" className={I} value="" onChange={(e) => { const i = Number(e.target.value); if (e.target.value !== "") setLinhas((p) => [...p, novo(i)]); }}>
             <option value="">+ Ou escolha pela lista ({PRESETS.length} itens)…</option>
             {grupos.map((g) => <optgroup key={g} label={g}>{PRESETS.map((p, i) => (p.grupo === g ? <option key={p.nome} value={i}>{p.nome}</option> : null))}</optgroup>)}
           </select>
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" className="btn-outline btn-sm" onClick={() => setLinhas((p) => [...p, linha(num(cfg.area) > 0 ? { comprimento: dist("tomadas") } : {})])}><IconPlus /> Carga personalizada</button>
-            <button type="button" className="btn-outline btn-sm" onClick={() => exemplo(CASA, "120", "terrea")}><IconPlus /> Exemplo: casa 120 m²</button>
-            <button type="button" className="btn-outline btn-sm col-span-2" onClick={() => exemplo(APTO, "75", "apartamento")}><IconPlus /> Exemplo: apartamento 75 m²</button>
-          </div>
-          {linhas.length === 0 && <p className="rounded-xl bg-light p-4 text-center text-muted">Adicione os aparelhos e circuitos da obra. Pode colocar vários: chuveiro, ar, tomadas, iluminação…</p>}
+          <button type="button" className="btn-outline btn-sm w-full" onClick={() => setLinhas((p) => [...p, linha(tam ? { comprimento: dist("tomadas") } : {})])}><IconPlus /> Carga personalizada</button>
+          {linhas.length === 0 && <p className="rounded-xl bg-light p-4 text-center text-muted">Digite o tamanho do imóvel acima e toque em <b>Montar a instalação</b>, ou adicione os aparelhos um a um.</p>}
           {linhas.map((l) => (
             <div key={l.id} className="space-y-2 rounded-xl border border-line p-3">
               <div className="flex items-center gap-2">
@@ -95,10 +108,10 @@ export function Multipla() {
                 <div><label className="text-[11px] font-bold uppercase text-muted" htmlFor={`q${l.id}`}>Qtd. circuitos</label><input id={`q${l.id}`} className="input py-2 text-right" inputMode="numeric" value={l.quantidade} onChange={(e) => upd(l.id, { quantidade: e.target.value })} /></div>
                 <div><label className="text-[11px] font-bold uppercase text-muted" htmlFor={`p${l.id}`}>Potência (W)</label><input id={`p${l.id}`} className="input py-2 text-right" inputMode="decimal" value={l.potencia} onChange={(e) => upd(l.id, { potencia: e.target.value })} /></div>
                 <div><label className="text-[11px] font-bold uppercase text-muted" htmlFor={`d${l.id}`}>Distância (m)</label><input id={`d${l.id}`} className="input py-2 text-right" inputMode="decimal" value={l.comprimento} onChange={(e) => upd(l.id, { comprimento: e.target.value, auto: false })} />
-                  {num(cfg.area) > 0 && (l.auto ? <span className="text-[11px] text-muted">pela área</span> : <button type="button" className="text-[11px] font-bold text-navy underline" onClick={() => upd(l.id, { comprimento: dist(l.tipo), auto: true })}>usar pela área</button>)}</div>
+                  {Boolean(tam) && (l.auto ? <span className="text-[11px] text-muted">pela área</span> : <button type="button" className="text-[11px] font-bold text-navy underline" onClick={() => upd(l.id, { comprimento: dist(l.tipo), auto: true })}>usar pela área</button>)}</div>
               </div>
               <div className="flex flex-wrap items-center gap-3 text-sm">
-                <select aria-label="Tipo de circuito" className="input w-auto py-1.5 text-sm" value={l.tipo} onChange={(e) => { const tipo = e.target.value as TipoCircuito; upd(l.id, { tipo, ...(l.auto && num(cfg.area) > 0 ? { comprimento: dist(tipo) } : {}) }); }}>{Object.entries(TIPOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+                <select aria-label="Tipo de circuito" className="input w-auto py-1.5 text-sm" value={l.tipo} onChange={(e) => { const tipo = e.target.value as TipoCircuito; upd(l.id, { tipo, ...(l.auto && Boolean(tam) ? { comprimento: dist(tipo) } : {}) }); }}>{Object.entries(TIPOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
                 <label className="flex items-center gap-1.5"><input type="checkbox" checked={l.molhada} onChange={(e) => upd(l.id, { molhada: e.target.checked })} className="h-4 w-4 accent-navy" /> Área molhada</label>
                 {l.sistema === "tri" && <span className="badge bg-brand text-navy">Trifásico {l.tensao} V</span>}
               </div>
@@ -147,7 +160,7 @@ export function Multipla() {
                 {m.uso && <p className="mt-0.5 text-xs text-muted"><span className="font-bold">Onde usar:</span> {m.uso}</p>}
               </li>))}</ul>
             <div className="p-3"><button type="button" onClick={paraOrcamento} className="btn-primary w-full">Criar orçamento com esses materiais</button>
-              <p className="mt-1.5 text-xs text-muted">Cabos com 10% de sobra{num(cfg.area) > 0 ? `, calculados para ${fmt(num(cfg.area), 0)} m² (${IMOVEIS[cfg.imovel].toLowerCase()})` : ""}. Preços vêm da sua tabela de materiais (com a sua margem). Eletrodutos, caixas e tomadas: adicione no orçamento.</p></div>
+              <p className="mt-1.5 text-xs text-muted">Cabos com 10% de sobra{Boolean(tam) ? `, calculados para ${fmt(tam?.area, 0)} m² (${IMOVEIS[cfg.imovel].toLowerCase()})` : ""}. Preços vêm da sua tabela de materiais (com a sua margem). Eletrodutos, caixas e tomadas: adicione no orçamento.</p></div>
           </div>
           {pj.avisos.length > 0 && <ul className="card space-y-1 border-amber-200 bg-amber-50 text-sm text-amber-900">{pj.avisos.map((a) => <li key={a}>⚠ {a}</li>)}</ul>}
           <p className="text-xs text-muted">Cálculo de referência pela NBR 5410 (cobre, PVC 70 °C) com fatores de demanda usuais de projeto residencial. Confira as condições reais e as normas da concessionária; a responsabilidade técnica é do profissional.</p>
